@@ -1,6 +1,11 @@
-import { CODEX_MODELS } from "../types";
 import { readSse } from "./openai";
-import { ORIGINATOR, responsesEndpoint } from "./codex-oauth";
+import {
+  ORIGINATOR,
+  extractCodexModelRecords,
+  modelsEndpoint,
+  responsesEndpoint,
+  selectCodexModels,
+} from "./codex-oauth";
 import {
   ProviderError,
   type AIProvider,
@@ -110,9 +115,30 @@ export const codexProvider: AIProvider = {
     }
   },
 
-  async listModels() {
-    // The Codex backend does not expose a model catalogue.
-    return [...CODEX_MODELS];
+  async listModels({ apiKey, accountId }) {
+    // The Codex backend serves its own catalogue; the account must be resolved
+    // first because the endpoint is host-dependent (EU accounts differ).
+    const response = await fetch(modelsEndpoint(apiKey), {
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        originator: ORIGINATOR,
+        ...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      throw new ProviderError(await describeError(response), response.status);
+    }
+
+    const models = selectCodexModels(
+      extractCodexModelRecords(await response.json()),
+    );
+    if (!models.length) {
+      throw new ProviderError(
+        "The Codex backend returned no models for this ChatGPT account.",
+      );
+    }
+    return models.map((model) => model.slug);
   },
 };
 

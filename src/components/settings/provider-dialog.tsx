@@ -133,11 +133,29 @@ export function ProviderDialog({
       if (found.length) {
         setModels(found.join(", "));
         toast.success(tr("settings.fetched", { count: found.length }));
+        // A Codex provider was created by the login flow, so the fetched
+        // catalogue has to be written back for it to become the default.
+        if (isCodex && provider) {
+          await onSubmit({
+            id: provider.id,
+            name: name.trim() || provider.name,
+            type: CODEX_PROVIDER_TYPE,
+            apiKey: "",
+            models: found,
+          });
+        }
       } else {
         toast.warning(t.settings.fetchFailed);
       }
-    } catch {
-      toast.error(t.settings.fetchFailed);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      if (isCodex && (code === "codex_reconnect_required" || code === "codex_not_connected")) {
+        toast.error(t.settings.codexNoToken);
+      } else if (code.startsWith("Provider error")) {
+        toast.error(code);
+      } else {
+        toast.error(t.settings.fetchFailed);
+      }
     } finally {
       setFetching(false);
     }

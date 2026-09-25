@@ -84,16 +84,35 @@ export const PROVIDER_TYPES: ProviderType[] = [
 export const CODEX_PROVIDER_TYPE: ProviderType = "openai-codex";
 
 /**
- * The Codex backend exposes no model catalogue, so this built-in list is what
- * a Codex provider starts with. Users can edit it per provider.
+ * Fallback catalogue for a Codex provider.
+ *
+ * The Codex backend *does* list models (Settings has a "Fetch models" button
+ * that queries it live and stores the result), but a fresh connection starts
+ * from these slugs. They mirror Codex CLI's own bundled catalogue, and every
+ * one of them is accepted with a ChatGPT account — unlike older `gpt-5.x-codex`
+ * slugs, which the backend rejects as "not supported when using Codex with a
+ * ChatGPT account".
  */
-export const CODEX_MODELS: string[] = [
+export const CODEX_MODELS: string[] = ["gpt-6-astra", "gpt-6-sol"];
+
+/**
+ * Slugs an earlier build of this app offered as Codex defaults, before the real
+ * catalogue was wired up. The backend rejects every one of them for ChatGPT
+ * accounts, so stored settings are migrated away from them on read.
+ */
+export const LEGACY_CODEX_MODELS: string[] = [
   "gpt-5.3-codex",
   "gpt-5.2-codex",
   "gpt-5.1-codex",
+  "gpt-5.1-codex-max",
+  "gpt-5.1-codex-mini",
   "gpt-5.4",
   "gpt-5.4-mini",
 ];
+
+export function isLegacyCodexModel(slug: string): boolean {
+  return LEGACY_CODEX_MODELS.includes(slug);
+}
 
 /** Provider as returned to the client — never contains the API key or tokens. */
 export interface ProviderSummary {

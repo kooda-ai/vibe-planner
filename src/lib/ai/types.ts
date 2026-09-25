@@ -3,13 +3,16 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface ChatStreamOptions {
+export interface ProviderCredentials {
   apiKey: string;
   baseUrl?: string;
-  model: string;
-  messages: ChatMessage[];
   /** Codex only: the ChatGPT account id sent as `ChatGPT-Account-Id`. */
   accountId?: string;
+}
+
+export interface ChatStreamOptions extends ProviderCredentials {
+  model: string;
+  messages: ChatMessage[];
   /** Aborts the underlying fetch when the client disconnects. */
   signal?: AbortSignal;
 }
@@ -23,7 +26,7 @@ export interface AIProvider {
   /** Yields incremental text chunks of the assistant answer. */
   chatStream(options: ChatStreamOptions): AsyncGenerator<string, void, unknown>;
   /** Lists the models the provider exposes; empty array when unsupported. */
-  listModels(options: { apiKey: string; baseUrl?: string }): Promise<string[]>;
+  listModels(options: ProviderCredentials): Promise<string[]>;
 }
 
 /** Raised for provider-side failures so routes can return a readable message. */

@@ -24,6 +24,13 @@ export const ORIGINATOR = "codex_cli_rs";
 const CODEX_API_BASE = "https://chatgpt.com/backend-api/codex";
 const CODEX_API_BASE_EU = "https://eu.chatgpt.com/backend-api/codex";
 
+/**
+ * Sent as `?client_version=` when listing models. The backend uses it to decide
+ * which catalogue entries a given client may see, so it must look like a Codex
+ * CLI release; keep it in step with the current CLI version.
+ */
+export const CODEX_CLIENT_VERSION = "0.142.5";
+
 export interface CodexPkce {
   verifier: string;
   challenge: string;
@@ -230,11 +237,63 @@ export function extractResidency(tokens: CodexTokens): string | undefined {
 }
 
 /** EU accounts are served from a separate host. */
-export function responsesEndpoint(accessToken: string): string {
+function codexApiBase(accessToken: string): string {
   const residency = extractResidency({
     accessToken,
     refreshToken: "",
   });
-  const base = residency?.toLowerCase() === "eu" ? CODEX_API_BASE_EU : CODEX_API_BASE;
-  return `${base}/responses`;
+  return residency?.toLowerCase() === "eu" ? CODEX_API_BASE_EU : CODEX_API_BASE;
+}
+
+/** Where streamed plan answers are requested from. */
+export function responsesEndpoint(accessToken: string): string {
+  return `${codexApiBase(accessToken)}/responses`;
+}
+
+/**
+ * The Codex backend DOES expose a catalogue (unlike the OpenAI API), but only to
+ * a Codex-like client. Not every slug it returns can be used with a ChatGPT
+ * account, so the response also carries per-model visibility flags.
+ */
+export function modelsEndpoint(accessToken: string): string {
+  return `${codexApiBase(accessToken)}/models?client_version=${CODEX_CLIENT_VERSION}`;
+}
+
+export interface CodexModelRecord {
+  slug?: string;
+  display_name?: string;
+  visibility?: string;
+  supported_in_api?: boolean;
+}
+
+export interface CodexModel {
+  slug: string;
+  displayName?: string;
+}
+
+/**
+ * Keeps only the models the picker should offer.
+ *
+ * Models marked `hide` (or not marked `list` at all) are the ones the backend
+ * rejects for ChatGPT accounts, so they are dropped rather than offered and
+ * then failing with "model is not supported when using Codex with a ChatGPT
+ * account".
+ */
+export function selectCodexModels(records: CodexModelRecord[]): CodexModel[] {
+  const seen = new Set<string>();
+  const models: CodexModel[] = [];
+  for (const record of records) {
+    const slug = record.slug?.trim();
+    if (!slug || seen.has(slug)) continue;
+    if (record.visibility !== "list") continue;
+    seen.add(slug);
+    models.push({ slug, displayName: record.display_name });
+  }
+  return models;
+}
+
+export function extractCodexModelRecords(payload: unknown): CodexModelRecord[] {
+  const models = (payload as { models?: unknown } | null)?.models;
+  if (!Array.isArray(models)) return [];
+  return models as CodexModelRecord[];
 }

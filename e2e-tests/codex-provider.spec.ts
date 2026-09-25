@@ -30,7 +30,10 @@ test("selecting the ChatGPT provider type swaps the API key for a connect button
 
   // The model field stays, pre-filled with the built-in Codex catalogue.
   await expect(page.getByTestId("provider-models-input")).toHaveValue(
-    /gpt-5\.3-codex/,
+    /gpt-6-astra/,
+  );
+  await expect(page.getByTestId("provider-models-input")).toHaveValue(
+    /gpt-6-sol/,
   );
 });
 
@@ -72,4 +75,26 @@ test("starting a ChatGPT login returns a well-formed authorize URL", async ({
   const unknown = await request.get("/api/oauth/codex/status?state=unknown-state");
   expect(unknown.ok()).toBeTruthy();
   expect((await unknown.json()).status).toBe("expired");
+});
+
+/**
+ * Regression guard: earlier builds seeded Codex providers with `gpt-5.x-codex`
+ * slugs that the backend rejects for ChatGPT accounts ("model is not supported
+ * when using Codex with a ChatGPT account"). The seeded catalogue must only
+ * contain slugs Codex actually lists.
+ */
+test("the default Codex catalogue avoids models ChatGPT accounts cannot use", async ({
+  page,
+}) => {
+  await page.goto("/settings");
+  await page.getByTestId("add-provider-button").click();
+  await page.getByTestId("provider-type-select").click();
+  await page
+    .getByRole("option", { name: "OpenAI (ChatGPT ile giriş)" })
+    .click();
+
+  const seeded = await page.getByTestId("provider-models-input").inputValue();
+  expect(seeded).toContain("gpt-6-astra");
+  expect(seeded).not.toMatch(/gpt-5\.\d+(\.\d+)?[-\w]*-codex/);
+  expect(seeded).not.toContain("gpt-5.4");
 });

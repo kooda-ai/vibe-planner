@@ -178,7 +178,7 @@ const tr = {
     codexNoToken:
       "ChatGPT hesabı bağlı değil. Bağlanmak için aşağıdaki butona bas.",
     codexModelsHint:
-      "Codex backend'i model listelemez; varsayılan liste gösterilir, elle düzenleyebilirsin.",
+      "Bağlandıktan sonra \"Modelleri çek\" ile hesabının kullanabildiği modelleri getirebilirsin. Elle de yazabilirsin.",
     baseUrl: "Base URL",
     baseUrlPlaceholder: "https://api.example.com/v1",
     apiKey: "API anahtarı",

@@ -1,7 +1,9 @@
 import { getSettingsRecord, saveSettings } from "./db";
 import {
+  CODEX_MODELS,
   CODEX_PROVIDER_TYPE,
   PROVIDER_TYPES,
+  isLegacyCodexModel,
   type AppSettings,
   type ProviderType,
   type StoredProvider,
@@ -43,6 +45,15 @@ export function parseProviders(raw: string | undefined): StoredProvider[] {
       ) {
         return [];
       }
+      const models = Array.isArray(candidate.models)
+        ? candidate.models.filter((m): m is string => typeof m === "string")
+        : [];
+      // Older builds seeded Codex providers with slugs the backend rejects for
+      // ChatGPT accounts; drop them so a dead model is never picked blindly.
+      const usableModels =
+        candidate.type === CODEX_PROVIDER_TYPE
+          ? models.filter((model) => !isLegacyCodexModel(model))
+          : models;
       return [
         {
           id: candidate.id,
@@ -50,9 +61,10 @@ export function parseProviders(raw: string | undefined): StoredProvider[] {
           type: candidate.type,
           apiKey: candidate.apiKey,
           baseUrl: candidate.baseUrl || undefined,
-          models: Array.isArray(candidate.models)
-            ? candidate.models.filter((m): m is string => typeof m === "string")
-            : [],
+          models:
+            candidate.type === CODEX_PROVIDER_TYPE && !usableModels.length
+              ? [...CODEX_MODELS]
+              : usableModels,
           refreshToken:
             typeof candidate.refreshToken === "string"
               ? candidate.refreshToken

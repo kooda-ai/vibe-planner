@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 
 import { getProvider } from "@/lib/ai";
+import { ensureFreshCodexAuth } from "@/lib/ai/codex-token";
 import { getSettingsRecord } from "@/lib/db";
 import {
   SETTINGS_KEYS,
+  isCodexProvider,
   isProviderType,
   readProviders,
 } from "@/lib/settings";
-import { CODEX_MODELS, CODEX_PROVIDER_TYPE } from "@/lib/types";
+import { CODEX_PROVIDER_TYPE, type StoredProvider } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +28,14 @@ export async function POST(request: Request) {
   let type = isProviderType(body.type) ? body.type : undefined;
   let apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
   let baseUrl = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
+  let stored: StoredProvider | undefined;
 
   if (typeof body.providerId === "string" && body.providerId) {
     const [providers, record] = await Promise.all([
       readProviders(),
       getSettingsRecord(),
     ]);
-    const stored =
+    stored =
       providers.find((p) => p.id === body.providerId) ??
       providers.find((p) => p.id === record[SETTINGS_KEYS.defaultProviderId]);
     if (!stored) {
@@ -43,13 +46,25 @@ export async function POST(request: Request) {
     baseUrl = baseUrl || stored.baseUrl || "";
   }
 
-  // Codex logins have no key to enter and the backend lists no models, so the
-  // built-in catalogue is returned without any network call.
-  if (type === CODEX_PROVIDER_TYPE) {
-    return NextResponse.json({ models: [...CODEX_MODELS] });
+  if (!type) {
+    return NextResponse.json({ error: "credentials_required" }, { status: 400 });
   }
 
-  if (!type || !apiKey) {
+  // A Codex provider authenticates with the linked ChatGPT account rather than
+  // a key, so its token is refreshed here before the catalogue is fetched.
+  let accountId: string | undefined;
+  if (type === CODEX_PROVIDER_TYPE) {
+    if (!stored) {
+      return NextResponse.json({ error: "codex_not_connected" }, { status: 400 });
+    }
+    try {
+      const auth = await ensureFreshCodexAuth(stored);
+      apiKey = auth.accessToken;
+      accountId = auth.accountId;
+    } catch {
+      return NextResponse.json({ error: "codex_reconnect_required" }, { status: 401 });
+    }
+  } else if (!apiKey) {
     return NextResponse.json({ error: "credentials_required" }, { status: 400 });
   }
 
@@ -57,6 +72,7 @@ export async function POST(request: Request) {
     const models = await getProvider(type).listModels({
       apiKey,
       baseUrl: baseUrl || undefined,
+      accountId,
     });
     return NextResponse.json({ models });
   } catch (error) {

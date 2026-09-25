@@ -180,7 +180,7 @@ const en: Dictionary = {
     codexNoToken:
       "No ChatGPT account is linked. Press the button below to connect one.",
     codexModelsHint:
-      "The Codex backend does not list models; the default catalogue is shown and stays editable.",
+      "Once connected, use \"Fetch models\" to load the models your account can use. You can also type them manually.",
     baseUrl: "Base URL",
     baseUrlPlaceholder: "https://api.example.com/v1",
     apiKey: "API key",

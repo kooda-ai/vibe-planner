@@ -70,7 +70,12 @@ Mevcut `OpenAI` / `Anthropic` / `OpenAI uyumlu` türlerinin yanında, API anahta
   gider ve farklı SSE olayları (`response.output_text.delta`, `response.completed`)
   kullanır; bu fark `src/lib/ai/codex.ts` içinde normalize edilir. Token süresi dolduğunda
   `src/lib/ai/codex-token.ts` sessizce yeniler.
-- Codex backend'i model listelemez; sabit bir varsayılan liste sunulur (elle düzenlenebilir).
+- **Modeller:** Codex backend'i `GET /backend-api/codex/models` ile bir katalog sunar.
+  Ayarlar'daki **"Modelleri çek"** bu uç noktayı sorgular; dönen listeden yalnızca
+  `visibility: "list"` olan modeller alınır — çünkü ChatGPT hesabıyla kullanılamayan
+  modeller backend'de gizli işaretlidir ve seçilirse
+  _"model is not supported when using Codex with a ChatGPT account"_ hatası verir.
+  Yeni bağlantılar Codex CLI'ın kendi kataloğuyla (`gpt-6-astra`, `gpt-6-sol`) başlar.
 - Uygulamada oturum kavramı yoktur: **sunucu genelinde tek bir ChatGPT hesabı** bağlanır,
   tüm tarayıcılar aynı hesabı kullanır.
 
@@ -100,7 +105,7 @@ npx prisma migrate dev --name init
 | `PATCH/DELETE /api/tasks/[id]` | görev güncelle / sil |
 | `POST /api/projects/[id]/chat` | streaming AI yanıtı + plan uygulama (NDJSON) |
 | `GET/PUT /api/settings` | sağlayıcı ve model ayarları (anahtarlar gizli) |
-| `POST /api/models` | seçili sağlayıcı için model listesi |
+| `POST /api/models` | seçili sağlayıcı için model listesi (Codex'te canlı katalog) |
 | `POST /api/oauth/codex/start` | ChatGPT girişini başlat (`authUrl` + `state`) |
 | `GET /api/oauth/codex/status?state=` | giriş durumu (`pending` / `connected` / `error`) |
 | `GET /api/projects/[id]/export` | tek projeyi dışa aktar |
