@@ -102,16 +102,29 @@ export function reorderPhases(projectId: string, ids: string[]) {
 
 /* ----------------------------------- tasks --------------------------------- */
 
-export function createTask(phaseId: string, content: string) {
+export function createTask(
+  phaseId: string,
+  input: {
+    content: string;
+    description?: string | null;
+    notes?: string | null;
+    done?: boolean;
+  },
+) {
   return request<{ task: Task }>(`/api/phases/${phaseId}/tasks`, {
     method: "POST",
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(input),
   });
 }
 
 export function updateTask(
   taskId: string,
-  patch: { content?: string; done?: boolean },
+  patch: {
+    content?: string;
+    description?: string | null;
+    notes?: string | null;
+    done?: boolean;
+  },
 ) {
   return request<{ task: Task }>(`/api/tasks/${taskId}`, {
     method: "PATCH",

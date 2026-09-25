@@ -68,7 +68,12 @@ async function load(): Promise<DBShape> {
     cache = {
       projects: parsed.projects ?? [],
       phases: parsed.phases ?? [],
-      tasks: parsed.tasks ?? [],
+      // Older files predate the per-task notes/description columns.
+      tasks: (parsed.tasks ?? []).map((task) => ({
+        ...task,
+        description: task.description ?? null,
+        notes: task.notes ?? null,
+      })),
       messages: parsed.messages ?? [],
       settings: parsed.settings ?? {},
     };
@@ -213,7 +218,12 @@ export function createPhase(
     description?: string | null;
     notes?: string | null;
     status?: PhaseStatus;
-    tasks?: { content: string; done?: boolean }[];
+    tasks?: {
+      content: string;
+      description?: string | null;
+      notes?: string | null;
+      done?: boolean;
+    }[];
   },
 ): Promise<Phase | null> {
   return withLock(async () => {
@@ -240,6 +250,8 @@ export function createPhase(
         phaseId: phase.id,
         order: index,
         content: task.content.trim(),
+        description: task.description?.trim() || null,
+        notes: task.notes?.trim() || null,
         done: Boolean(task.done),
       });
     });
@@ -316,7 +328,12 @@ export function reorderPhases(
 
 export function createTask(
   phaseId: string,
-  input: { content: string; done?: boolean },
+  input: {
+    content: string;
+    description?: string | null;
+    notes?: string | null;
+    done?: boolean;
+  },
 ): Promise<Task | null> {
   return withLock(async () => {
     const db = await load();
@@ -328,6 +345,8 @@ export function createTask(
       phaseId,
       order: orders.length ? Math.max(...orders) + 1 : 0,
       content: input.content.trim(),
+      description: input.description?.trim() || null,
+      notes: input.notes?.trim() || null,
       done: Boolean(input.done),
     };
     db.tasks.push(task);
@@ -340,13 +359,21 @@ export function createTask(
 
 export function updateTask(
   taskId: string,
-  patch: { content?: string; done?: boolean; order?: number },
+  patch: {
+    content?: string;
+    description?: string | null;
+    notes?: string | null;
+    done?: boolean;
+    order?: number;
+  },
 ): Promise<Task | null> {
   return withLock(async () => {
     const db = await load();
     const task = db.tasks.find((t) => t.id === taskId);
     if (!task) return null;
     if (patch.content !== undefined) task.content = patch.content;
+    if (patch.description !== undefined) task.description = patch.description;
+    if (patch.notes !== undefined) task.notes = patch.notes;
     if (patch.done !== undefined) task.done = patch.done;
     if (patch.order !== undefined) task.order = patch.order;
     const phase = db.phases.find((p) => p.id === task.phaseId);
@@ -438,21 +465,25 @@ export function applyPlan(
         existing.updatedAt = now;
         if (item.tasks) {
           // Replace the checklist with the AI's version, preserving done flags
-          // by task text so completed work is not lost.
+          // by task text so completed work is not lost. Notes the user wrote
+          // are kept when the AI does not send new ones.
           const previous = db.tasks.filter((t) => t.phaseId === existing.id);
-          const doneByContent = new Map(
-            previous.map((t) => [t.content.trim().toLowerCase(), t.done]),
+          const priorByContent = new Map(
+            previous.map((t) => [t.content.trim().toLowerCase(), t]),
           );
           db.tasks = db.tasks.filter((t) => t.phaseId !== existing.id);
           item.tasks.forEach((task, index) => {
             const content = task.content?.trim();
             if (!content) return;
+            const prior = priorByContent.get(content.toLowerCase());
             db.tasks.push({
               id: newId(),
               phaseId: existing.id,
               order: index,
               content,
-              done: task.done ?? doneByContent.get(content.toLowerCase()) ?? false,
+              description: task.description?.trim() || prior?.description || null,
+              notes: task.notes?.trim() || prior?.notes || null,
+              done: task.done ?? prior?.done ?? false,
             });
           });
         }
@@ -479,6 +510,8 @@ export function applyPlan(
             phaseId: phase.id,
             order: index,
             content,
+            description: task.description?.trim() || null,
+            notes: task.notes?.trim() || null,
             done: Boolean(task.done),
           });
         });
@@ -582,6 +615,8 @@ export function importProject(bundle: ExportBundle): Promise<Project> {
               phaseId,
               order: taskIndex,
               content: task.content,
+              description: task.description?.trim() || null,
+              notes: task.notes?.trim() || null,
               done: Boolean(task.done),
             });
           });

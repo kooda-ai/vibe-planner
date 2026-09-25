@@ -44,6 +44,23 @@ test("manage phases: add, rename, tasks, status, copy and delete", async ({
   await expect(firstPhase.getByTestId("task-checkbox")).toBeVisible();
   await expect(firstPhase.getByTestId("task-progress")).toContainText("0/1");
 
+  // --- document the task: description + research notes ----------------------
+  await firstPhase.getByTestId("task-details-toggle").click();
+  await firstPhase
+    .getByTestId("task-description-input")
+    .fill("Create the Project/Phase/Task models and migrate them.");
+  await firstPhase
+    .getByTestId("task-notes-input")
+    .fill("Researched: Prisma supports cascade deletes via onDelete: Cascade.");
+  await firstPhase.getByTestId("save-task-details").click();
+
+  await expect(firstPhase.getByTestId("task-description")).toHaveText(
+    "Create the Project/Phase/Task models and migrate them.",
+  );
+  await expect(firstPhase.getByTestId("task-notes")).toContainText(
+    "onDelete: Cascade",
+  );
+
   await firstPhase.getByTestId("task-checkbox").check();
   await expect(firstPhase.getByTestId("task-progress")).toContainText("1/1");
 
@@ -55,6 +72,12 @@ test("manage phases: add, rename, tasks, status, copy and delete", async ({
   expect(clipboard).toContain(`# ${name}`);
   expect(clipboard).toContain("## Phase 1: Phase: Design the schema");
   expect(clipboard).toContain("- [x] Model the Project table");
+  expect(clipboard).toContain(
+    "  Açıklama: Create the Project/Phase/Task models and migrate them.",
+  );
+  expect(clipboard).toContain(
+    "  Notlar: Researched: Prisma supports cascade deletes",
+  );
 
   // --- mark the phase done ---------------------------------------------------
   await firstPhase.getByTestId("phase-status-trigger").click();

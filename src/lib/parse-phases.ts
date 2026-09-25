@@ -5,6 +5,8 @@ import type { Plan, PlanPhase } from "./types";
 
 const planTaskSchema = z.object({
   content: z.string(),
+  description: z.string().nullish(),
+  notes: z.string().nullish(),
   done: z.boolean().optional(),
 });
 
@@ -51,7 +53,12 @@ export function extractPlan(raw: string): {
       status: phase.status,
       tasks: (phase.tasks ?? [])
         .filter((task) => Boolean(task.content?.trim()))
-        .map((task) => ({ content: task.content.trim(), done: task.done })),
+        .map((task) => ({
+          content: task.content.trim(),
+          description: task.description?.trim() || null,
+          notes: task.notes?.trim() || null,
+          done: task.done,
+        })),
     }))
     .filter((phase) => phase.title.length > 0);
 

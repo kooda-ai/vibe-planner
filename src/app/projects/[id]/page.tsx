@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { PhaseList } from "@/components/phases/phase-list";
+import type { TaskPatch } from "@/components/phases/task-list";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -193,7 +194,7 @@ export default function ProjectPage() {
   }
 
   async function handleAddTask(phaseId: string, content: string) {
-    const { task } = await createTask(phaseId, content);
+    const { task } = await createTask(phaseId, { content });
     setData((prev) =>
       prev
         ? {
@@ -201,6 +202,31 @@ export default function ProjectPage() {
             phases: prev.phases.map((item) =>
               item.id === phaseId
                 ? { ...item, tasks: [...item.tasks, task] }
+                : item,
+            ),
+          }
+        : prev,
+    );
+  }
+
+  async function handleUpdateTask(
+    phaseId: string,
+    taskId: string,
+    patch: TaskPatch,
+  ) {
+    const { task } = await updateTask(taskId, patch);
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            phases: prev.phases.map((item) =>
+              item.id === phaseId
+                ? {
+                    ...item,
+                    tasks: item.tasks.map((current) =>
+                      current.id === taskId ? task : current,
+                    ),
+                  }
                 : item,
             ),
           }
@@ -370,6 +396,7 @@ export default function ProjectPage() {
       onMovePhase={handleMovePhase}
       onReorder={handleReorder}
       onAddTask={handleAddTask}
+      onUpdateTask={handleUpdateTask}
       onToggleTask={handleToggleTask}
       onDeleteTask={handleDeleteTask}
     />

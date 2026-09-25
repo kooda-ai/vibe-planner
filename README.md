@@ -11,6 +11,12 @@ kopyalayabildiğiniz tek kullanıcılı bir web uygulaması.
   olarak phase'lere dönüşür ve sağ panele düşer.
 - **Phase Paneli** — sürükle-bırak sıralama, yeniden adlandırma, elle phase/task ekleme,
   notlar ve durum (bekliyor / devam ediyor / tamamlandı).
+- **Görev detayı** — her görevin kendi **Açıklaması** (ne yapılacak, nasıl uygulanacak) ve
+  **araştırma notları** alanı vardır; görev satırındaki `›` düğmesiyle düzenlenir, kartta
+  özet olarak görünür ve kopyalama çıktısına da yazılır.
+- **Detaylı AI planları** — AI, her phase'i *amaç, kapsam dışı, bağlam, ön koşullar,
+  yapılacaklar, kısıtlar, testler, kabul kriterleri, dikkat edilecekler, çıktı, doğrulama*
+  bölümleriyle üretir ve her göreve açıklama + not yazar.
 - **Tek tıkla kopyalama** — phase başına veya tümü tek metinde, `# proje / ## phase / içerik`
   şablonuyla panoya (Sonner toast ile doğrulanır).
 - **Çoklu AI sağlayıcı** — OpenAI, Anthropic, OpenAI-uyumlu özel `base URL` ve **ChatGPT
@@ -128,6 +134,8 @@ npx prisma migrate dev --name init
   ayıklar; gövde metni akıtılırken JSON kısmı gizlenir.
 - **Güncelleme stratejisi** — AI mevcut bir phase'i `id` vererek günceller, `id` yoksa yeni
   phase eklenir. **Silme işlemi yapılmaz** (veri kaybını önlemek için; kullanıcı elle siler).
+  Görevler görev metnine göre eşlenir: AI yeni bir açıklama/not göndermezse kullanıcının
+  yazdığı görev notları ve `done` durumu korunur.
 - **Geçersiz JSON** — parse başarısız olursa phase'ler değişmez ve kullanıcıya
   "AI geçerli bir plan üretemedi" uyarısı gösterilir.
 - **Depolama soyutlaması** — tüm veri erişimi `src/lib/db.ts` içinde tek noktada toplanmıştır.
@@ -141,7 +149,7 @@ npx playwright test
 ```
 
 `e2e-tests/` altında dashboard proje oluşturma ve phase yönetimi (ekle, yeniden
-adlandır, görev, durum, kopyalama, silme) akışları kapsanır.
+adlandır, görev, görev açıklaması/notu, durum, kopyalama, silme) akışları kapsanır.
 
 ## Teknoloji
 

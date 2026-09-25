@@ -12,6 +12,10 @@ export interface Task {
   phaseId: string;
   order: number;
   content: string;
+  /** What this task involves: the concrete work and how to verify it. */
+  description: string | null;
+  /** Research notes: findings, decisions, links, gotchas. */
+  notes: string | null;
   done: boolean;
 }
 
@@ -160,6 +164,8 @@ export interface StoredProvider {
 
 export interface PlanTask {
   content: string;
+  description?: string | null;
+  notes?: string | null;
   done?: boolean;
 }
 

@@ -42,12 +42,14 @@ model Phase {
 }
 
 model Task {
-  id      String  @id @default(cuid())
-  phaseId String
-  phase   Phase   @relation(fields: [phaseId], references: [id], onDelete: Cascade)
-  order   Int
-  content String
-  done    Boolean @default(false)
+  id          String  @id @default(cuid())
+  phaseId     String
+  phase       Phase   @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  order       Int
+  content     String
+  description String?
+  notes       String?
+  done        Boolean @default(false)
 }
 
 model Message {

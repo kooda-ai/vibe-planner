@@ -23,6 +23,7 @@ import { toast } from "sonner";
 
 import { CopyButton } from "@/components/phases/copy-button";
 import { PhaseCard } from "@/components/phases/phase-card";
+import type { TaskPatch } from "@/components/phases/task-list";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +58,11 @@ interface PhaseListProps {
   onMovePhase: (phaseId: string, direction: -1 | 1) => void;
   onReorder: (ids: string[]) => Promise<void>;
   onAddTask: (phaseId: string, content: string) => Promise<void>;
+  onUpdateTask: (
+    phaseId: string,
+    taskId: string,
+    patch: TaskPatch,
+  ) => Promise<void>;
   onToggleTask: (phaseId: string, taskId: string, done: boolean) => Promise<void>;
   onDeleteTask: (phaseId: string, taskId: string) => Promise<void>;
 }
@@ -70,6 +76,7 @@ export function PhaseList(props: PhaseListProps) {
     onMovePhase,
     onReorder,
     onDeleteTask,
+    onUpdateTask,
     onToggleTask,
     onAddTask,
     onUpdatePhase,
@@ -127,6 +134,7 @@ export function PhaseList(props: PhaseListProps) {
           text={formatAllPhases(project, phases, {
             tasks: t.phases.tasks,
             notes: t.phases.notes,
+            description: t.phases.description,
           })}
           label={t.phases.copyAll}
           successMessage={t.phases.copyAllDone}
@@ -164,6 +172,7 @@ export function PhaseList(props: PhaseListProps) {
                     onDelete={setPendingDelete}
                     onMove={onMovePhase}
                     onAddTask={onAddTask}
+                    onUpdateTask={onUpdateTask}
                     onToggleTask={onToggleTask}
                     onDeleteTask={onDeleteTask}
                   />
@@ -237,6 +246,7 @@ function SortablePhaseCard({
   onDelete,
   onMove,
   onAddTask,
+  onUpdateTask,
   onToggleTask,
   onDeleteTask,
 }: {
@@ -249,6 +259,7 @@ function SortablePhaseCard({
   onDelete: (phase: Phase) => void;
   onMove: (phaseId: string, direction: -1 | 1) => void;
   onAddTask: PhaseListProps["onAddTask"];
+  onUpdateTask: PhaseListProps["onUpdateTask"];
   onToggleTask: PhaseListProps["onToggleTask"];
   onDeleteTask: PhaseListProps["onDeleteTask"];
 }) {
@@ -272,6 +283,7 @@ function SortablePhaseCard({
         onDelete={onDelete}
         onMove={onMove}
         onAddTask={onAddTask}
+        onUpdateTask={onUpdateTask}
         onToggleTask={(phaseId, taskId, done) => onToggleTask(phaseId, taskId, done)}
         onDeleteTask={(phaseId, taskId) => onDeleteTask(phaseId, taskId)}
       />

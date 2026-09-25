@@ -3,16 +3,39 @@ import type { Phase, Project, Task } from "./types";
 export interface FormatLabels {
   tasks: string;
   notes: string;
+  description: string;
 }
 
-const DEFAULT_LABELS: FormatLabels = { tasks: "Görevler", notes: "Notlar" };
+const DEFAULT_LABELS: FormatLabels = {
+  tasks: "Görevler",
+  notes: "Notlar",
+  description: "Açıklama",
+};
+
+/** Indents a multi-line block so it stays nested under its list item. */
+function indent(text: string, prefix: string): string {
+  return text
+    .split("\n")
+    .map((line) => (line.trim() ? prefix + line : ""))
+    .join("\n");
+}
+
+function formatTask(task: Task, labels: FormatLabels): string {
+  const lines = [`- [${task.done ? "x" : " "}] ${task.content}`];
+  if (task.description?.trim()) {
+    lines.push(indent(`${labels.description}: ${task.description.trim()}`, "  "));
+  }
+  if (task.notes?.trim()) {
+    lines.push(indent(`${labels.notes}: ${task.notes.trim()}`, "  "));
+  }
+  return lines.join("\n");
+}
 
 function formatTasks(tasks: Task[], labels: FormatLabels): string {
   if (!tasks.length) return "";
-  return [
-    `${labels.tasks}:`,
-    ...tasks.map((task) => `- [${task.done ? "x" : " "}] ${task.content}`),
-  ].join("\n");
+  return [`${labels.tasks}:`, ...tasks.map((task) => formatTask(task, labels))].join(
+    "\n",
+  );
 }
 
 /**
@@ -26,6 +49,8 @@ function formatTasks(tasks: Task[], labels: FormatLabels): string {
  *
  *   Tasks:
  *   - [ ] Todo
+ *     Description: ...
+ *     Notes: ...
  *   - [x] Done
  *
  *   Notes:

@@ -15,7 +15,7 @@ import { toast } from "sonner";
 
 import { CopyButton } from "@/components/phases/copy-button";
 import { PhaseStatusBadge } from "@/components/phases/phase-status-badge";
-import { TaskList } from "@/components/phases/task-list";
+import { TaskList, type TaskPatch } from "@/components/phases/task-list";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import {
@@ -49,6 +49,7 @@ export function PhaseCard({
   onDelete,
   onMove,
   onAddTask,
+  onUpdateTask,
   onToggleTask,
   onDeleteTask,
 }: {
@@ -59,6 +60,11 @@ export function PhaseCard({
   isLast: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
   isDragging?: boolean;
+  onUpdateTask: (
+    phaseId: string,
+    taskId: string,
+    patch: TaskPatch,
+  ) => Promise<void>;
   onUpdate: (
     phaseId: string,
     patch: {
@@ -199,6 +205,7 @@ export function PhaseCard({
             text={formatPhase(project, phase, index, {
               tasks: t.phases.tasks,
               notes: t.phases.notes,
+              description: t.phases.description,
             })}
             label={t.phases.copy}
             successMessage={t.phases.copyPhaseDone.replace("{title}", phase.title)}
@@ -304,6 +311,7 @@ export function PhaseCard({
               phaseId={phase.id}
               tasks={tasks}
               onAdd={onAddTask}
+              onUpdate={onUpdateTask}
               onToggle={(task, done) => onToggleTask(phase.id, task.id, done)}
               onDelete={(task) => onDeleteTask(phase.id, task.id)}
             />
