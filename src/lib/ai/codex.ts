@@ -1,5 +1,6 @@
 import { readSse } from "./openai";
 import {
+  CODEX_CLIENT_VERSIONS,
   ORIGINATOR,
   extractCodexModelRecords,
   modelsEndpoint,
@@ -118,27 +119,53 @@ export const codexProvider: AIProvider = {
   async listModels({ apiKey, accountId }) {
     // The Codex backend serves its own catalogue; the account must be resolved
     // first because the endpoint is host-dependent (EU accounts differ).
-    const response = await fetch(modelsEndpoint(apiKey), {
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        originator: ORIGINATOR,
-        ...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
-      },
-    });
+    const headers: Record<string, string> = {
+      authorization: `Bearer ${apiKey}`,
+      originator: ORIGINATOR,
+      ...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
+    };
 
-    if (!response.ok) {
-      throw new ProviderError(await describeError(response), response.status);
+    let best: string[] = [];
+    let lastError: ProviderError | undefined;
+
+    // The catalogue is version-gated and returns a *shorter* list (not an
+    // error) for a client that looks too old, so every candidate version is
+    // queried and the richest answer wins.
+    for (const clientVersion of CODEX_CLIENT_VERSIONS) {
+      try {
+        const response = await fetch(modelsEndpoint(apiKey, clientVersion), {
+          headers,
+        });
+        if (!response.ok) {
+          lastError = new ProviderError(
+            await describeError(response),
+            response.status,
+          );
+          continue;
+        }
+        const found = selectCodexModels(
+          extractCodexModelRecords(await response.json()),
+        ).map((model) => model.slug);
+        if (found.length > best.length) best = found;
+      } catch (error) {
+        lastError =
+          error instanceof ProviderError
+            ? error
+            : new ProviderError(
+                error instanceof Error ? error.message : "unknown_error",
+              );
+      }
     }
 
-    const models = selectCodexModels(
-      extractCodexModelRecords(await response.json()),
-    );
-    if (!models.length) {
-      throw new ProviderError(
-        "The Codex backend returned no models for this ChatGPT account.",
+    if (!best.length) {
+      throw (
+        lastError ??
+        new ProviderError(
+          "The Codex backend returned no models for this ChatGPT account.",
+        )
       );
     }
-    return models.map((model) => model.slug);
+    return best;
   },
 };
 

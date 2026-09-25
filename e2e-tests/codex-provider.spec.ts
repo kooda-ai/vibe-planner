@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { CODEX_CLIENT_VERSIONS } from "../src/lib/ai/codex-oauth";
+
 /**
  * Covers the "OpenAI (ChatGPT ile giriş)" provider type without ever touching
  * the live OAuth flow: selecting the type must hide the API-key/base-URL fields
@@ -97,4 +99,34 @@ test("the default Codex catalogue avoids models ChatGPT accounts cannot use", as
   expect(seeded).toContain("gpt-6-astra");
   expect(seeded).not.toMatch(/gpt-5\.\d+(\.\d+)?[-\w]*-codex/);
   expect(seeded).not.toContain("gpt-5.4");
+});
+
+/**
+ * The model catalogue is version-gated: each entry has a
+ * `minimal_client_version`, and asking with a version below it makes the
+ * backend silently return a SHORTER list. `gpt-6-astra` needs >= 0.153.0 and
+ * `gpt-6-sol` needs >= 0.155.0, so at least one probed version must clear
+ * 0.155.0 — otherwise the fetch only ever yields the ungated `gpt-5.5`.
+ */
+test("the probed client versions are high enough to clear the model gates", () => {
+  const numeric = (v: string) => v.split(".").map((part) => Number(part));
+  const atLeast = (v: string, floor: number[]) => {
+    const parts = numeric(v);
+    for (let i = 0; i < 3; i += 1) {
+      const a = parts[i] ?? 0;
+      const b = floor[i] ?? 0;
+      if (a !== b) return a > b;
+    }
+    return true;
+  };
+
+  expect(CODEX_CLIENT_VERSIONS.length).toBeGreaterThan(0);
+  // At least one probed version must clear the newest known gate (gpt-6-sol),
+  // otherwise the fetch would only ever return the ungated gpt-5.5.
+  expect(CODEX_CLIENT_VERSIONS.some((v) => atLeast(v, [0, 155, 0]))).toBe(true);
+  // Every probed version must still clear the older gate (gpt-6-astra), so the
+  // fallback cannot be older than the stable release we target.
+  for (const version of CODEX_CLIENT_VERSIONS) {
+    expect(atLeast(version, [0, 153, 0])).toBe(true);
+  }
 });

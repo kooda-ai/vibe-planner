@@ -25,11 +25,17 @@ const CODEX_API_BASE = "https://chatgpt.com/backend-api/codex";
 const CODEX_API_BASE_EU = "https://eu.chatgpt.com/backend-api/codex";
 
 /**
- * Sent as `?client_version=` when listing models. The backend uses it to decide
- * which catalogue entries a given client may see, so it must look like a Codex
- * CLI release; keep it in step with the current CLI version.
+ * Candidate values for the `?client_version=` query parameter, highest first.
+ *
+ * The catalogue is version-gated: each entry carries a `minimal_client_version`
+ * and the backend hides the model from older clients. Asking with too low a
+ * version therefore silently returns a *shorter* list (e.g. only the ungated
+ * `gpt-5.5`) rather than an error, so we probe a small set and keep the richest
+ * answer. `0.155.0` is the gate of the newest known model; `0.153.4` is the
+ * current stable CLI release and acts as the safe fallback if a future-gated
+ * version is rejected outright.
  */
-export const CODEX_CLIENT_VERSION = "0.142.5";
+export const CODEX_CLIENT_VERSIONS = ["0.155.0", "0.153.4"];
 
 export interface CodexPkce {
   verifier: string;
@@ -255,8 +261,8 @@ export function responsesEndpoint(accessToken: string): string {
  * a Codex-like client. Not every slug it returns can be used with a ChatGPT
  * account, so the response also carries per-model visibility flags.
  */
-export function modelsEndpoint(accessToken: string): string {
-  return `${codexApiBase(accessToken)}/models?client_version=${CODEX_CLIENT_VERSION}`;
+export function modelsEndpoint(accessToken: string, clientVersion: string): string {
+  return `${codexApiBase(accessToken)}/models?client_version=${clientVersion}`;
 }
 
 export interface CodexModelRecord {

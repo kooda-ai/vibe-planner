@@ -70,11 +70,14 @@ Mevcut `OpenAI` / `Anthropic` / `OpenAI uyumlu` türlerinin yanında, API anahta
   gider ve farklı SSE olayları (`response.output_text.delta`, `response.completed`)
   kullanır; bu fark `src/lib/ai/codex.ts` içinde normalize edilir. Token süresi dolduğunda
   `src/lib/ai/codex-token.ts` sessizce yeniler.
-- **Modeller:** Codex backend'i `GET /backend-api/codex/models` ile bir katalog sunar.
-  Ayarlar'daki **"Modelleri çek"** bu uç noktayı sorgular; dönen listeden yalnızca
-  `visibility: "list"` olan modeller alınır — çünkü ChatGPT hesabıyla kullanılamayan
-  modeller backend'de gizli işaretlidir ve seçilirse
-  _"model is not supported when using Codex with a ChatGPT account"_ hatası verir.
+- **Modeller:** Codex backend'i `GET /backend-api/codex/models?client_version=…` ile bir
+  katalog sunar. Ayarlar'daki **"Modelleri çek"** bu uç noktayı sorgular. İki filtre var:
+  - `visibility: "list"` — ChatGPT hesabıyla kullanılamayan modeller backend'de gizlidir;
+    seçilirse _"model is not supported when using Codex with a ChatGPT account"_ hatası verir.
+  - `minimal_client_version` — **kritik**: katalog sürüme kapılıdır ve çok eski bir
+    `client_version` gönderirsen backend hata vermez, yalnızca **daha kısa** bir liste
+    döner (örn. yalnızca kapısız `gpt-5.5`). Bu yüzden birden fazla sürüm denenip en
+    zengin liste alınır (`CODEX_CLIENT_VERSIONS`).
   Yeni bağlantılar Codex CLI'ın kendi kataloğuyla (`gpt-6-astra`, `gpt-6-sol`) başlar.
 - Uygulamada oturum kavramı yoktur: **sunucu genelinde tek bir ChatGPT hesabı** bağlanır,
   tüm tarayıcılar aynı hesabı kullanır.
