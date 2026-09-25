@@ -1,0 +1,16 @@
+import { anthropicProvider } from "./anthropic";
+import { openAIProvider } from "./openai";
+import type { AIProvider } from "./types";
+import type { ProviderType } from "../types";
+
+const REGISTRY: Record<ProviderType, AIProvider> = {
+  openai: openAIProvider,
+  "openai-compatible": openAIProvider,
+  anthropic: anthropicProvider,
+};
+
+export function getProvider(type: ProviderType): AIProvider {
+  return REGISTRY[type] ?? openAIProvider;
+}
+
+export * from "./types";
