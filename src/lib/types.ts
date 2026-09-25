@@ -63,15 +63,39 @@ export interface ProjectDetail {
 /*                              AI provider config                            */
 /* -------------------------------------------------------------------------- */
 
-export type ProviderType = "openai" | "anthropic" | "openai-compatible";
+export type ProviderType =
+  | "openai"
+  | "anthropic"
+  | "openai-compatible"
+  | "openai-codex";
 
 export const PROVIDER_TYPES: ProviderType[] = [
   "openai",
   "anthropic",
   "openai-compatible",
+  "openai-codex",
 ];
 
-/** Provider as returned to the client — never contains the API key. */
+/**
+ * "openai-codex" signs in with a ChatGPT Plus/Pro account through the Codex CLI
+ * OAuth flow instead of an API key. It is unofficial and may break, so the UI
+ * labels it as experimental.
+ */
+export const CODEX_PROVIDER_TYPE: ProviderType = "openai-codex";
+
+/**
+ * The Codex backend exposes no model catalogue, so this built-in list is what
+ * a Codex provider starts with. Users can edit it per provider.
+ */
+export const CODEX_MODELS: string[] = [
+  "gpt-5.3-codex",
+  "gpt-5.2-codex",
+  "gpt-5.1-codex",
+  "gpt-5.4",
+  "gpt-5.4-mini",
+];
+
+/** Provider as returned to the client — never contains the API key or tokens. */
 export interface ProviderSummary {
   id: string;
   name: string;
@@ -79,6 +103,10 @@ export interface ProviderSummary {
   baseUrl?: string;
   models: string[];
   hasApiKey: boolean;
+  /** Codex: an account is linked and the tokens are held server-side. */
+  connected: boolean;
+  /** Codex: e-mail of the linked ChatGPT account, when the token exposes it. */
+  accountEmail?: string;
 }
 
 export interface AppSettings {
@@ -87,7 +115,12 @@ export interface AppSettings {
   defaultModel: string | null;
 }
 
-/** Provider as stored on the server (includes the secret). */
+/**
+ * Provider as stored on the server (includes the secrets).
+ *
+ * For `openai-codex`, `apiKey` holds the OAuth access token and the extra
+ * fields carry the refresh token, the ChatGPT account id and the expiry.
+ */
 export interface StoredProvider {
   id: string;
   name: string;
@@ -95,6 +128,11 @@ export interface StoredProvider {
   baseUrl?: string;
   apiKey: string;
   models: string[];
+  refreshToken?: string;
+  accountId?: string;
+  /** Access token expiry as epoch milliseconds. */
+  expiresAt?: number;
+  accountEmail?: string;
 }
 
 /* -------------------------------------------------------------------------- */

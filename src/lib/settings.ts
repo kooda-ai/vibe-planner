@@ -1,5 +1,6 @@
 import { getSettingsRecord, saveSettings } from "./db";
 import {
+  CODEX_PROVIDER_TYPE,
   PROVIDER_TYPES,
   type AppSettings,
   type ProviderType,
@@ -14,6 +15,10 @@ export const SETTINGS_KEYS = {
 
 export function isProviderType(value: unknown): value is ProviderType {
   return PROVIDER_TYPES.includes(value as ProviderType);
+}
+
+export function isCodexProvider(provider: StoredProvider): boolean {
+  return provider.type === CODEX_PROVIDER_TYPE;
 }
 
 /** Reads providers from storage, skipping anything malformed. */
@@ -48,6 +53,22 @@ export function parseProviders(raw: string | undefined): StoredProvider[] {
           models: Array.isArray(candidate.models)
             ? candidate.models.filter((m): m is string => typeof m === "string")
             : [],
+          refreshToken:
+            typeof candidate.refreshToken === "string"
+              ? candidate.refreshToken
+              : undefined,
+          accountId:
+            typeof candidate.accountId === "string"
+              ? candidate.accountId
+              : undefined,
+          expiresAt:
+            typeof candidate.expiresAt === "number"
+              ? candidate.expiresAt
+              : undefined,
+          accountEmail:
+            typeof candidate.accountEmail === "string"
+              ? candidate.accountEmail
+              : undefined,
         },
       ];
     });
@@ -60,7 +81,7 @@ export async function writeProviders(providers: StoredProvider[]): Promise<void>
   await saveSettings({ [SETTINGS_KEYS.providers]: JSON.stringify(providers) });
 }
 
-/** Public (client-safe) view of the settings — API keys are stripped. */
+/** Public (client-safe) view of the settings — API keys and tokens are stripped. */
 export function toAppSettings(
   providers: StoredProvider[],
   record: Record<string, string>,
@@ -75,6 +96,10 @@ export function toAppSettings(
       baseUrl: provider.baseUrl,
       models: provider.models,
       hasApiKey: Boolean(provider.apiKey),
+      connected: isCodexProvider(provider) ? Boolean(provider.apiKey) : false,
+      accountEmail: isCodexProvider(provider)
+        ? provider.accountEmail
+        : undefined,
     })),
     defaultProviderId: exists ? defaultProviderId : (providers[0]?.id ?? null),
     defaultModel: record[SETTINGS_KEYS.defaultModel] ?? null,

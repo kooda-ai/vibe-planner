@@ -7,6 +7,7 @@ import {
   isProviderType,
   readProviders,
 } from "@/lib/settings";
+import { CODEX_MODELS, CODEX_PROVIDER_TYPE } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,12 @@ export async function POST(request: Request) {
     type = stored.type;
     apiKey = apiKey || stored.apiKey;
     baseUrl = baseUrl || stored.baseUrl || "";
+  }
+
+  // Codex logins have no key to enter and the backend lists no models, so the
+  // built-in catalogue is returned without any network call.
+  if (type === CODEX_PROVIDER_TYPE) {
+    return NextResponse.json({ models: [...CODEX_MODELS] });
   }
 
   if (!type || !apiKey) {

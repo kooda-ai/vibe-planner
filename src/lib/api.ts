@@ -6,6 +6,7 @@ import type {
   Project,
   ProjectDetail,
   ProjectSummary,
+  ProviderSummary,
   Task,
 } from "./types";
 
@@ -149,6 +150,51 @@ export function fetchModels(payload: {
 
 export function resetAllData() {
   return request<{ ok: boolean }>("/api/data", { method: "DELETE" });
+}
+
+/* ------------------------------ ChatGPT login ------------------------------ */
+
+export type CodexStatus =
+  | { status: "pending" }
+  | { status: "expired" }
+  | { status: "error"; message: string }
+  | { status: "connected"; provider: ProviderSummary };
+
+export function startCodexLogin() {
+  return request<{ authUrl: string; state: string }>("/api/oauth/codex/start", {
+    method: "POST",
+  });
+}
+
+export function pollCodexStatus(state: string) {
+  return request<CodexStatus>(
+    `/api/oauth/codex/status?state=${encodeURIComponent(state)}`,
+  );
+}
+
+/**
+ * Unlinks the ChatGPT account. The provider row carries the tokens, so dropping
+ * it (and moving the default elsewhere if needed) is all it takes.
+ */
+export async function disconnectCodexProvider(id: string) {
+  const settings = await fetchSettings();
+  const providers = settings.providers
+    .filter((provider) => provider.id !== id)
+    .map((provider) => ({
+      id: provider.id,
+      name: provider.name,
+      type: provider.type,
+      baseUrl: provider.baseUrl,
+      apiKey: "",
+      models: provider.models,
+    }));
+  return saveSettings({
+    providers,
+    defaultProviderId:
+      settings.defaultProviderId === id
+        ? (providers[0]?.id ?? "")
+        : settings.defaultProviderId,
+  });
 }
 
 /* ----------------------------------- chat ---------------------------------- */

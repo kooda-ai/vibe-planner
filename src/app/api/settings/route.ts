@@ -9,7 +9,7 @@ import {
   readAppSettings,
   writeProviders,
 } from "@/lib/settings";
-import type { StoredProvider } from "@/lib/types";
+import { CODEX_PROVIDER_TYPE, type StoredProvider } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +58,16 @@ export async function PUT(request: Request) {
               typeof m === "string" && m.trim() ? [m.trim()] : [],
             )
           : (previous?.models ?? []),
+        // The ChatGPT tokens are written by the OAuth flow, never by the
+        // client, so keep whatever the server stored for this provider.
+        ...(candidate.type === CODEX_PROVIDER_TYPE
+          ? {
+              refreshToken: previous?.refreshToken,
+              accountId: previous?.accountId,
+              accountEmail: previous?.accountEmail,
+              expiresAt: previous?.expiresAt,
+            }
+          : {}),
       });
     }
     providers = next;

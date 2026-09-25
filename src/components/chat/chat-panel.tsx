@@ -35,6 +35,8 @@ export function ChatPanel({
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** True when only reconfiguring a provider in Settings can fix the error. */
+  const [needsSettings, setNeedsSettings] = useState(false);
   const [local, setLocal] = useState<Message[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -54,6 +56,7 @@ export function ChatPanel({
     if (!text || busy) return;
 
     setError(null);
+    setNeedsSettings(false);
     setBusy(true);
     setStreamingText("");
 
@@ -97,8 +100,13 @@ export function ChatPanel({
             setStreamingText(null);
             if (code === "no_provider_configured" || code === "missing_api_key") {
               setError(t.chat.noProvider);
+              setNeedsSettings(true);
+            } else if (code === "codex_reconnect_required") {
+              setError(t.chat.codexReconnect);
+              setNeedsSettings(true);
             } else {
               setError(code.startsWith("Provider error") ? code : t.chat.failed);
+              setNeedsSettings(false);
             }
           },
         },
@@ -191,7 +199,7 @@ export function ChatPanel({
             >
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span className="flex-1">{error}</span>
-              {error === t.chat.noProvider ? (
+              {needsSettings ? (
                 <Button size="sm" variant="outline" asChild>
                   <Link href="/settings">{t.nav.settings}</Link>
                 </Button>

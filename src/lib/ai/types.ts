@@ -8,6 +8,8 @@ export interface ChatStreamOptions {
   baseUrl?: string;
   model: string;
   messages: ChatMessage[];
+  /** Codex only: the ChatGPT account id sent as `ChatGPT-Account-Id`. */
+  accountId?: string;
   /** Aborts the underlying fetch when the client disconnects. */
   signal?: AbortSignal;
 }

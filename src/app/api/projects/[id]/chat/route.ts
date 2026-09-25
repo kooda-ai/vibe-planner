@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { getProvider } from "@/lib/ai";
+import { ensureFreshCodexAuth } from "@/lib/ai/codex-token";
 import { buildChatMessages } from "@/lib/ai/prompt";
-import type { ChatMessage } from "@/lib/ai/types";
+import { ProviderError, type ChatMessage } from "@/lib/ai/types";
 import {
   addMessage,
   applyPlan,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/db";
 import { extractPlan } from "@/lib/parse-phases";
 import { visiblePrefix } from "@/lib/plan-block";
-import { pickProvider, readProviders } from "@/lib/settings";
+import { isCodexProvider, pickProvider, readProviders } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -65,7 +66,25 @@ export async function POST(request: Request, { params }: Params) {
   if (!choice) {
     return NextResponse.json({ error: "no_provider_configured" }, { status: 400 });
   }
-  if (!choice.provider.apiKey) {
+
+  // Codex logins carry an OAuth token instead of an API key; refresh it here so
+  // an expired session is renewed silently before the request goes out.
+  let credential = choice.provider.apiKey;
+  let accountId: string | undefined;
+  if (isCodexProvider(choice.provider)) {
+    try {
+      const auth = await ensureFreshCodexAuth(choice.provider);
+      credential = auth.accessToken;
+      accountId = auth.accountId;
+    } catch (error) {
+      // The stored session is dead and could not be renewed — the only fix is
+      // to link the account again, so the UI gets a code it can explain.
+      return NextResponse.json(
+        { error: "codex_reconnect_required" },
+        { status: error instanceof ProviderError ? error.status : 502 },
+      );
+    }
+  } else if (!credential) {
     return NextResponse.json({ error: "missing_api_key" }, { status: 400 });
   }
 
@@ -98,10 +117,11 @@ export async function POST(request: Request, { params }: Params) {
 
       try {
         for await (const chunk of provider.chatStream({
-          apiKey: choice.provider.apiKey,
+          apiKey: credential,
           baseUrl: choice.provider.baseUrl,
           model: choice.model,
           messages,
+          accountId,
           signal: request.signal,
         })) {
           raw += chunk;

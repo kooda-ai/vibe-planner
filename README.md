@@ -13,8 +13,9 @@ kopyalayabildiğiniz tek kullanıcılı bir web uygulaması.
   notlar ve durum (bekliyor / devam ediyor / tamamlandı).
 - **Tek tıkla kopyalama** — phase başına veya tümü tek metinde, `# proje / ## phase / içerik`
   şablonuyla panoya (Sonner toast ile doğrulanır).
-- **Çoklu AI sağlayıcı** — OpenAI, Anthropic ve OpenAI-uyumlu özel `base URL`. API anahtarları
-  yalnızca sunucuda saklanır, istemciye asla gönderilmez.
+- **Çoklu AI sağlayıcı** — OpenAI, Anthropic, OpenAI-uyumlu özel `base URL` ve **ChatGPT
+  (Codex) ile giriş**. API anahtarları ve OAuth token'ları yalnızca sunucuda saklanır,
+  istemciye asla gönderilmez.
 - **Ayarlar** — sağlayıcı ekle/çıkar, model seçimi, tema, dil (TR/EN) ve export/import.
 - **Tema & dil** — `next-themes` ile açık/koyu/sistem, hafif TR/EN sözlüğü.
 
@@ -37,6 +38,41 @@ Uygulama kutudan çıktığı gibi çalışır: veriler `.data/planner.json` dos
 3. Panelden bir proje oluşturun, sohbette fikrinizi anlatın
    (örn. _"marketplace uygulaması için MVP planı çıkar"_).
 4. Phase'leri düzenleyip **Kopyala** ile vibe coder'a yapıştırın.
+
+## ChatGPT (Codex) ile giriş — deneysel
+
+Mevcut `OpenAI` / `Anthropic` / `OpenAI uyumlu` türlerinin yanında, API anahtarı yerine
+**kendi ChatGPT Plus/Pro hesabınızla** giriş yapan bir sağlayıcı türü vardır:
+`OpenAI (ChatGPT ile giriş)`.
+
+> ⚠️ **Bu resmî bir geliştirici girişi değildir.** Codex CLI için tanımlı sabit bir OAuth
+> istemcisi (`app_EMoamEEZ73f0CkXaXp7hrann`) kullanır. OpenAI bu akışı tolere ediyor ama
+> değiştirme veya engelleme hakkını saklı tutar; kullanım koşulları açısından gri alandır.
+> Bu yüzden özellik arayüzde **“deneysel”** olarak etiketlenmiştir. Akış bozulursa
+> düzeltilecek yer `src/lib/ai/codex*.ts` dosyalarıdır.
+
+**Akış**
+
+1. Ayarlar → Sağlayıcı ekle → tür olarak `OpenAI (ChatGPT ile giriş)` seçin.
+2. **ChatGPT ile bağlan** butonuna basın; tarayıcıda OpenAI'ın yetkilendirme sayfası açılır.
+3. ChatGPT Plus/Pro hesabınızla onaylayın. Sayfa ~2 sn'de bir sunucuyu yoklar; onay
+   gelince sağlayıcı otomatik kaydedilir ve kartta **Bağlı** + hesap e-postası görünür.
+4. **Bağlantıyı kes** token'ları (ve dolayısıyla sağlayıcıyı) siler.
+
+**Nasıl çalışır**
+
+- `redirect_uri` = `http://localhost:1455/auth/callback` sabittir; Next.js süreci bu portta
+  **geçici bir HTTP listener** açar (`src/lib/ai/codex-auth-server.ts`). Port doluysa
+  açıklayıcı bir hata döner.
+- Token'lar **yalnızca sunucuda** (`.data/planner.json`) saklanır; istemciye yalnızca
+  `connected` bilgisi ve e-posta döner.
+- Sohbet istekleri **Responses API**'ye (`https://chatgpt.com/backend-api/codex/responses`)
+  gider ve farklı SSE olayları (`response.output_text.delta`, `response.completed`)
+  kullanır; bu fark `src/lib/ai/codex.ts` içinde normalize edilir. Token süresi dolduğunda
+  `src/lib/ai/codex-token.ts` sessizce yeniler.
+- Codex backend'i model listelemez; sabit bir varsayılan liste sunulur (elle düzenlenebilir).
+- Uygulamada oturum kavramı yoktur: **sunucu genelinde tek bir ChatGPT hesabı** bağlanır,
+  tüm tarayıcılar aynı hesabı kullanır.
 
 ## Prisma + SQLite (opsiyonel)
 
@@ -65,6 +101,8 @@ npx prisma migrate dev --name init
 | `POST /api/projects/[id]/chat` | streaming AI yanıtı + plan uygulama (NDJSON) |
 | `GET/PUT /api/settings` | sağlayıcı ve model ayarları (anahtarlar gizli) |
 | `POST /api/models` | seçili sağlayıcı için model listesi |
+| `POST /api/oauth/codex/start` | ChatGPT girişini başlat (`authUrl` + `state`) |
+| `GET /api/oauth/codex/status?state=` | giriş durumu (`pending` / `connected` / `error`) |
 | `GET /api/projects/[id]/export` | tek projeyi dışa aktar |
 | `GET /api/export` | tüm verileri dışa aktar |
 | `POST /api/projects/import` | proje / yedek içe aktar |
@@ -72,8 +110,11 @@ npx prisma migrate dev --name init
 
 ## Mimari Notlar
 
-- **AI soyutlaması** — `src/lib/ai/`: sağlayıcı adapter'ları (OpenAI, Anthropic) ortak bir
-  `AIProvider` arayüzü uygular; SSE farkları adapter içinde normalize edilir.
+- **AI soyutlaması** — `src/lib/ai/`: sağlayıcı adapter'ları (OpenAI, Anthropic, Codex)
+  ortak bir `AIProvider` arayüzü uygular; SSE farkları adapter içinde normalize edilir.
+- **Codex izolasyonu** — resmî olmayan OAuth akışı `codex-oauth.ts`, `codex-auth-server.ts`,
+  `codex-token.ts` ve `codex.ts` dosyalarına hapsedilmiştir; akış değişirse tek dosyada
+  düzeltilir.
 - **Streaming + JSON** — sistem talimatı modelden önce serbest metin, en sonda tek bir
   ```` ```json ```` bloğu ister. Sunucu stream'i tamponlar, kapanış fence'ini görünce JSON'u
   ayıklar; gövde metni akıtılırken JSON kısmı gizlenir.

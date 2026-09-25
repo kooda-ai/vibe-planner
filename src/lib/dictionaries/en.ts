@@ -139,6 +139,8 @@ const en: Dictionary = {
       "Add an AI provider and API key in Settings before chatting.",
     retry: "Retry",
     copyMessage: "Copy message",
+    codexReconnect:
+      "Your ChatGPT session expired and could not be renewed. Reconnect the account in Settings.",
   },
   settings: {
     title: "Settings",
@@ -156,7 +158,29 @@ const en: Dictionary = {
       openai: "OpenAI",
       anthropic: "Anthropic",
       "openai-compatible": "OpenAI-compatible (custom)",
+      "openai-codex": "OpenAI (Sign in with ChatGPT)",
     },
+    connectChatgpt: "Connect with ChatGPT",
+    connected: "Connected",
+    connectedAs: "Connected — {email}",
+    connectedNoEmail: "Connected",
+    disconnect: "Disconnect",
+    disconnecting: "Disconnecting…",
+    disconnected: "Disconnected",
+    disconnectFailed: "Could not disconnect.",
+    connecting: "Waiting for approval in your browser…",
+    connectHint:
+      "Press the button and approve with your ChatGPT Plus/Pro account in the tab that opens. This page links up automatically once you are done.",
+    connectFailed: "Could not connect.",
+    connectTimeout: "Approval did not arrive within 5 minutes. You can retry.",
+    connectExpired: "The login attempt expired. Please try again.",
+    reconnect: "Reconnect",
+    codexExperimental:
+      "Experimental: this is not an official developer login. It uses a fixed OAuth client registered for the Codex CLI; OpenAI may change or block it.",
+    codexNoToken:
+      "No ChatGPT account is linked. Press the button below to connect one.",
+    codexModelsHint:
+      "The Codex backend does not list models; the default catalogue is shown and stays editable.",
     baseUrl: "Base URL",
     baseUrlPlaceholder: "https://api.example.com/v1",
     apiKey: "API key",

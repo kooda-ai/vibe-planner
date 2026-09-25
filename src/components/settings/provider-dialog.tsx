@@ -23,9 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ConnectChatGpt } from "@/components/settings/connect-chatgpt";
 import { fetchModels } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import { PROVIDER_TYPES, type ProviderSummary, type ProviderType } from "@/lib/types";
+import {
+  CODEX_MODELS,
+  CODEX_PROVIDER_TYPE,
+  PROVIDER_TYPES,
+  type ProviderSummary,
+  type ProviderType,
+} from "@/lib/types";
 
 export interface ProviderFormValue {
   id?: string;
@@ -64,13 +71,34 @@ export function ProviderDialog({
     setModels((provider?.models ?? []).join(", "));
   }, [open, provider]);
 
+  const isCodex = type === CODEX_PROVIDER_TYPE;
+
+  /**
+   * The server already stored the tokens and the provider row; this only
+   * applies the name/model edits the user made in the form on top of it.
+   */
+  async function handleConnected(connected: ProviderSummary) {
+    await onSubmit({
+      id: connected.id,
+      name: name.trim() || connected.name,
+      type: CODEX_PROVIDER_TYPE,
+      apiKey: "",
+      models: models
+        .split(",")
+        .map((model) => model.trim())
+        .filter(Boolean),
+    });
+    setOpen(false);
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) {
       toast.error(t.settings.nameRequired);
       return;
     }
-    if (!provider && !apiKey.trim()) {
+    // A Codex provider gets its credential from the browser login, not a key.
+    if (!isCodex && !provider && !apiKey.trim()) {
       toast.error(t.settings.keyRequired);
       return;
     }
@@ -80,8 +108,8 @@ export function ProviderDialog({
         id: provider?.id,
         name: name.trim(),
         type,
-        baseUrl: baseUrl.trim() || undefined,
-        apiKey: apiKey.trim(),
+        baseUrl: isCodex ? undefined : baseUrl.trim() || undefined,
+        apiKey: isCodex ? "" : apiKey.trim(),
         models: models
           .split(",")
           .map((model) => model.trim())
@@ -141,7 +169,18 @@ export function ProviderDialog({
 
             <div className="grid gap-2">
               <Label>{t.settings.providerType}</Label>
-              <Select value={type} onValueChange={(value) => setType(value as ProviderType)}>
+              <Select
+                value={type}
+                onValueChange={(value) => {
+                  const next = value as ProviderType;
+                  setType(next);
+                  // The Codex backend lists no models, so seed the built-in
+                  // catalogue instead of leaving the field empty.
+                  if (next === CODEX_PROVIDER_TYPE && !models.trim()) {
+                    setModels(CODEX_MODELS.join(", "));
+                  }
+                }}
+              >
                 <SelectTrigger data-testid="provider-type-select">
                   <SelectValue />
                 </SelectTrigger>
@@ -155,35 +194,44 @@ export function ProviderDialog({
               </Select>
             </div>
 
-            {type !== "anthropic" ? (
-              <div className="grid gap-2">
-                <Label htmlFor="provider-base-url">{t.settings.baseUrl}</Label>
-                <Input
-                  id="provider-base-url"
-                  value={baseUrl}
-                  onChange={(event) => setBaseUrl(event.target.value)}
-                  placeholder={t.settings.baseUrlPlaceholder}
-                  data-testid="provider-base-url-input"
-                />
+            {isCodex ? (
+              <div className="grid gap-2 rounded-lg border bg-muted/40 p-3">
+                <p className="text-xs font-medium">{t.settings.codexExperimental}</p>
+                <ConnectChatGpt onConnected={handleConnected} compact />
               </div>
-            ) : null}
+            ) : (
+              <>
+                {type !== "anthropic" ? (
+                  <div className="grid gap-2">
+                    <Label htmlFor="provider-base-url">{t.settings.baseUrl}</Label>
+                    <Input
+                      id="provider-base-url"
+                      value={baseUrl}
+                      onChange={(event) => setBaseUrl(event.target.value)}
+                      placeholder={t.settings.baseUrlPlaceholder}
+                      data-testid="provider-base-url-input"
+                    />
+                  </div>
+                ) : null}
 
-            <div className="grid gap-2">
-              <Label htmlFor="provider-api-key">{t.settings.apiKey}</Label>
-              <Input
-                id="provider-api-key"
-                type="password"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-                placeholder={t.settings.apiKeyPlaceholder}
-                data-testid="provider-api-key-input"
-              />
-              {provider ? (
-                <p className="text-xs text-muted-foreground">
-                  {t.settings.apiKeyKeep}
-                </p>
-              ) : null}
-            </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="provider-api-key">{t.settings.apiKey}</Label>
+                  <Input
+                    id="provider-api-key"
+                    type="password"
+                    value={apiKey}
+                    onChange={(event) => setApiKey(event.target.value)}
+                    placeholder={t.settings.apiKeyPlaceholder}
+                    data-testid="provider-api-key-input"
+                  />
+                  {provider ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t.settings.apiKeyKeep}
+                    </p>
+                  ) : null}
+                </div>
+              </>
+            )}
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
@@ -207,7 +255,9 @@ export function ProviderDialog({
                 placeholder={t.settings.modelsPlaceholder}
                 data-testid="provider-models-input"
               />
-              <p className="text-xs text-muted-foreground">{t.settings.modelsHint}</p>
+              <p className="text-xs text-muted-foreground">
+                {isCodex ? t.settings.codexModelsHint : t.settings.modelsHint}
+              </p>
             </div>
           </div>
 

@@ -1,6 +1,14 @@
 "use client";
 
-import { Download, KeyRound, Pencil, Trash2, Upload } from "lucide-react";
+import {
+  Download,
+  KeyRound,
+  Pencil,
+  Plug,
+  PlugZap,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -34,9 +42,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchSettings, resetAllData, saveSettings } from "@/lib/api";
+import {
+  disconnectCodexProvider,
+  fetchSettings,
+  resetAllData,
+  saveSettings,
+} from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import type { AppSettings, ProviderSummary } from "@/lib/types";
+import {
+  CODEX_PROVIDER_TYPE,
+  type AppSettings,
+  type ProviderSummary,
+} from "@/lib/types";
 
 export default function SettingsPage() {
   const { t, tr } = useI18n();
@@ -116,6 +133,16 @@ export default function SettingsPage() {
     setPendingDelete(null);
   }
 
+  /** Unlinks the ChatGPT account by dropping the provider row that holds its tokens. */
+  async function disconnectCodex(provider: ProviderSummary) {
+    try {
+      setSettings(await disconnectCodexProvider(provider.id));
+      toast.success(t.settings.disconnected);
+    } catch {
+      toast.error(t.settings.disconnectFailed);
+    }
+  }
+
   async function importFile(file: File) {
     try {
       const text = await file.text();
@@ -159,66 +186,103 @@ export default function SettingsPage() {
           {loading ? (
             <Skeleton className="h-16 rounded-lg" />
           ) : settings && settings.providers.length > 0 ? (
-            settings.providers.map((provider) => (
-              <div
-                key={provider.id}
-                className="flex items-center gap-3 rounded-lg border p-3"
-                data-testid="provider-row"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
-                  <KeyRound className="h-4 w-4 text-muted-foreground" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium" data-testid="provider-name">
-                      {provider.name}
+            settings.providers.map((provider) => {
+              const isCodex = provider.type === CODEX_PROVIDER_TYPE;
+              return (
+                <div
+                  key={provider.id}
+                  className="flex items-center gap-3 rounded-lg border p-3"
+                  data-testid="provider-row"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
+                    {isCodex ? (
+                      <PlugZap className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <KeyRound className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p
+                        className="truncate text-sm font-medium"
+                        data-testid="provider-name"
+                      >
+                        {provider.name}
+                      </p>
+                      {provider.id === settings.defaultProviderId ? (
+                        <Badge variant="secondary" className="text-[10px]">
+                          {t.settings.defaultProvider}
+                        </Badge>
+                      ) : null}
+                      {isCodex && provider.connected ? (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] text-emerald-600 dark:text-emerald-400"
+                          data-testid="codex-badge"
+                        >
+                          <Plug className="mr-1 h-3 w-3" />
+                          {t.settings.connected}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {t.settings.types[provider.type]}
+                      {provider.baseUrl ? ` · ${provider.baseUrl}` : ""}
+                      {provider.accountEmail ? ` · ${provider.accountEmail}` : ""}
+                      {provider.models.length
+                        ? ` · ${provider.models.slice(0, 2).join(", ")}${
+                            provider.models.length > 2 ? "…" : ""
+                          }`
+                        : ""}
                     </p>
-                    {provider.id === settings.defaultProviderId ? (
-                      <Badge variant="secondary" className="text-[10px]">
-                        {t.settings.defaultProvider}
-                      </Badge>
+                    {isCodex ? (
+                      provider.connected ? null : (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          {t.settings.codexNoToken}
+                        </p>
+                      )
+                    ) : !provider.hasApiKey ? (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        {t.settings.keyRequired}
+                      </p>
                     ) : null}
                   </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {t.settings.types[provider.type]}
-                    {provider.baseUrl ? ` · ${provider.baseUrl}` : ""}
-                    {provider.models.length
-                      ? ` · ${provider.models.slice(0, 2).join(", ")}${
-                          provider.models.length > 2 ? "…" : ""
-                        }`
-                      : ""}
-                  </p>
-                  {!provider.hasApiKey ? (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      {t.settings.keyRequired}
-                    </p>
-                  ) : null}
-                </div>
-                <ProviderDialog
-                  provider={provider}
-                  onSubmit={upsertProvider}
-                  trigger={
+                  {isCodex && provider.connected ? (
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t.settings.editProvider}
-                      data-testid="edit-provider"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void disconnectCodex(provider)}
+                      data-testid="disconnect-chatgpt"
                     >
-                      <Pencil className="h-4 w-4" />
+                      {t.settings.disconnect}
                     </Button>
-                  }
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t.settings.deleteProvider}
-                  onClick={() => setPendingDelete(provider)}
-                  data-testid="delete-provider"
-                >
-                  <Trash2 className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </div>
-            ))
+                  ) : null}
+                  <ProviderDialog
+                    provider={provider}
+                    onSubmit={upsertProvider}
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t.settings.editProvider}
+                        data-testid="edit-provider"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t.settings.deleteProvider}
+                    onClick={() => setPendingDelete(provider)}
+                    data-testid="delete-provider"
+                  >
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </div>
+              );
+            })
           ) : (
             <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
               {t.settings.noProviders}

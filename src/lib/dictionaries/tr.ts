@@ -136,6 +136,8 @@ const tr = {
       "Önce Ayarlar'dan bir AI sağlayıcı ekleyip API anahtarı girmelisin.",
     retry: "Yeniden dene",
     copyMessage: "Mesajı kopyala",
+    codexReconnect:
+      "ChatGPT oturumunun süresi doldu ve yenilenemedi. Ayarlar'dan hesabı yeniden bağla.",
   },
   settings: {
     title: "Ayarlar",
@@ -153,7 +155,30 @@ const tr = {
       openai: "OpenAI",
       anthropic: "Anthropic",
       "openai-compatible": "OpenAI uyumlu (özel)",
+      "openai-codex": "OpenAI (ChatGPT ile giriş)",
     },
+    connectChatgpt: "ChatGPT ile bağlan",
+    connected: "Bağlı",
+    connectedAs: "Bağlı — {email}",
+    connectedNoEmail: "Bağlı",
+    disconnect: "Bağlantıyı kes",
+    disconnecting: "Bağlantı kesiliyor…",
+    disconnected: "Bağlantı kesildi",
+    disconnectFailed: "Bağlantı kesilemedi.",
+    connecting: "Tarayıcıda onay bekleniyor…",
+    connectHint:
+      "Butona bas, açılan tarayıcı sekmesinde ChatGPT Plus/Pro hesabınla onayla. Onay bitince bu sayfa otomatik olarak bağlanır.",
+    connectFailed: "Bağlantı kurulamadı.",
+    connectTimeout:
+      "Onay 5 dakika içinde gelmedi. Tekrar deneyebilirsin.",
+    connectExpired: "Bağlantı denemesi zaman aşımına uğradı. Yeniden dene.",
+    reconnect: "Yeniden bağlan",
+    codexExperimental:
+      "Deneysel: resmi bir geliştirici girişi değildir. Codex CLI için tanımlı sabit bir OAuth istemcisi kullanır; OpenAI bu akışı değiştirebilir veya engelleyebilir.",
+    codexNoToken:
+      "ChatGPT hesabı bağlı değil. Bağlanmak için aşağıdaki butona bas.",
+    codexModelsHint:
+      "Codex backend'i model listelemez; varsayılan liste gösterilir, elle düzenleyebilirsin.",
     baseUrl: "Base URL",
     baseUrlPlaceholder: "https://api.example.com/v1",
     apiKey: "API anahtarı",
