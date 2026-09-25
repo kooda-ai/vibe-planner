@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { AppHeader } from "@/components/app-header";
+import { DesktopUpdateNotifications } from "@/components/desktop-update";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { I18nProvider } from "@/lib/i18n";
@@ -45,6 +46,7 @@ export default function RootLayout({
               <main className="flex-1">{children}</main>
             </div>
             <Toaster richColors position="bottom-right" />
+            <DesktopUpdateNotifications />
           </I18nProvider>
         </ThemeProvider>
       </body>

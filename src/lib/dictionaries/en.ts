@@ -35,6 +35,12 @@ const en = {
     confirm: "Confirm",
     optional: "optional",
   },
+  updates: {
+    available: "Downloading Vibe Planner {version}…",
+    downloading: "Downloading update… {percent}%",
+    downloaded: "Update ready — it installs when you quit the app.",
+    error: "Could not check for updates.",
+  },
   dashboard: {
     title: "Projects",
     subtitle:

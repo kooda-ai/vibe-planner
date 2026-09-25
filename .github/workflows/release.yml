@@ -1,0 +1,117 @@
+name: Release Desktop App
+
+# Every push to main produces the next patch release (v1.0.0 → v1.0.1 …).
+# The tag is created by this workflow, never committed back to the repository,
+# so a run can not trigger itself.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Compute next version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump the patch version
+        id: bump
+        run: |
+          set -euo pipefail
+          PREV=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo '')
+          if [ -z "$PREV" ]; then
+            VERSION="1.0.0"
+          else
+            VERSION=$(node -e "
+              const [major, minor, patch] = '${PREV#v}'.split('.').map(Number);
+              console.log(major + '.' + minor + '.' + (patch + 1));
+            ")
+          fi
+          echo "Previous tag: ${PREV:-<none>} -> next version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Stamp the computed version
+        run: npm pkg set version=${{ needs.version.outputs.version }}
+
+      - name: Build the Next.js standalone server
+        run: pnpm build:standalone
+
+      - name: Bundle the Electron entry points
+        run: pnpm build:electron
+
+      - name: Package the desktop app
+        run: npx electron-builder --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.yml
+            dist/*.blockmap
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all installers
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ needs.version.outputs.version }}" dist/* \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "Vibe Planner v${{ needs.version.outputs.version }}" \
+            --latest \
+            --generate-notes

@@ -1,0 +1,73 @@
+# Packaging + publishing for the Vibe Planner desktop app.
+# Docs: https://www.electron.build/configuration/configuration
+appId: com.vibeplanner.app
+productName: Vibe Planner
+copyright: Copyright © 2026 Vibe Planner
+
+directories:
+  output: dist
+
+# Only the compiled Electron entry points travel inside the asar archive. The
+# web app is shipped separately as `extraResources` so Node can run Next's
+# server.js from a real directory instead of from inside the archive.
+files:
+  - dist-electron/**
+  - package.json
+
+extraResources:
+  - from: .next/standalone
+    to: app
+
+# The renderer is bundled by esbuild (electron-updater included), so there is no
+# node_modules tree to rebuild.
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: VibePlanner-${version}-Setup.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Vibe Planner
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  category: public.app-category.productivity
+  artifactName: VibePlanner-${version}-${arch}.${ext}
+  # Builds are unsigned, so the updater is disabled here (see electron/main.ts):
+  # macOS users install a new version from the GitHub release manually.
+  identity: null
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Utility
+  maintainer: Vibe Planner
+  synopsis: AI project planner for vibe coding
+  artifactName: VibePlanner-${version}.${ext}
+
+# electron-updater reads latest*.yml from the GitHub release assets.
+publish:
+  provider: github
+  owner: kooda-ai
+  repo: vibe-planner

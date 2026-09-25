@@ -1,8 +1,9 @@
 # Vibe Planner — AI Project Planner
 
-A single-user web app that splits a project idea into **phases** by chatting with an AI,
+A single-user app that splits a project idea into **phases** by chatting with an AI,
 lets you manage each phase with a task list + notes + status, and copies any phase into your
-**vibe coder** (e.g. Dyad) with one click.
+**vibe coder** (e.g. Dyad) with one click. It runs both in the browser and as a packaged
+**desktop app** (Windows / macOS / Linux).
 
 ## Features
 
@@ -94,6 +95,66 @@ provider that signs in with **your own ChatGPT Plus/Pro account** instead of an 
 - There is no session concept: a **single ChatGPT account is connected for the whole
   server**, and every browser uses that account.
 
+## Desktop app (Electron)
+
+The desktop build keeps the whole server-side app intact: Electron spawns Next's
+`standalone` server (`server.js`) as a child process and loads the UI from
+`http://127.0.0.1:<port>`. Every API route — chat streaming and the
+`localhost:1455` Codex OAuth callback included — therefore behaves exactly as it does on
+the web.
+
+### Running it
+
+```bash
+pnpm desktop          # dev: next dev + Electron pointing at it (port 3000)
+pnpm dist:dir         # production build, unpacked (dist/… — quickest way to test)
+pnpm dist             # full installers (nsis / dmg / AppImage + deb)
+```
+
+`pnpm desktop` builds the Electron bundles with esbuild and starts Electron against the
+dev server. `dist`/`dist:dir` first run `next build` with `output: "standalone"` and copy
+`.next/static` + `public` into `.next/standalone` before packaging.
+
+### Where data lives
+
+The packaged app writes to **`app.getPath("userData")/planner.json`** (e.g.
+`%APPDATA%/Vibe Planner` on Windows, `~/Library/Application Support/Vibe Planner` on
+macOS, `~/.config/Vibe Planner` on Linux), passed to the server through the
+`PLANNER_DATA_FILE` environment variable. Nothing is ever written inside the application
+bundle, which is read-only on Windows and macOS.
+
+### Desktop behaviour
+
+- **Single instance** — a second launch focuses the existing window (protects both the
+  data file and the fixed `1455` OAuth port).
+- **External links** — every `http(s)` link (including the ChatGPT authorize page) opens in
+  the system browser; the app window never navigates away.
+- **Menu** — the default menu is replaced by a minimal one (Reload / zoom / fullscreen /
+  Quit, DevTools in dev); macOS keeps its app menu.
+- **Layout** — `dist-electron/` (esbuild output) and `dist/` (electron-builder output) are
+  git-ignored; `electron-builder.yml` ships `.next/standalone` as `resources/app`, i.e.
+  **outside** the asar archive so `node server.js` can run from a real folder.
+
+## Releases & auto-update
+
+`.github/workflows/release.yml` runs on every push to `main` (and can be triggered
+manually):
+
+1. **version** — reads the newest `v*` git tag and computes the next patch version
+   (`v1.0.0` → `v1.0.1`; `1.0.0` when no tag exists).
+2. **build** — a `windows-latest` / `macos-latest` / `ubuntu-latest` matrix builds the
+   installers with that version (`npm pkg set version=…`) and uploads them as artifacts.
+3. **release** — creates the `vX.Y.Z` GitHub release with all installers plus the
+   `latest*.yml` metadata electron-updater reads. The tag is created by the workflow and
+   never committed back, so a run cannot trigger itself.
+
+**Auto-update:** enabled on **Windows** and **Linux** — the app checks on launch and shows
+a toast ("Downloading update…", then "Update ready — it installs when you quit"). macOS
+builds are **not** code-signed, so auto-update is intentionally **disabled** there
+(`electron/main.ts`); macOS users install a new version from the GitHub release manually
+(unsigned app → Gatekeeper "right-click → Open" the first time). Windows shows a
+SmartScreen warning on first run — also expected for an unsigned build.
+
 ## Prisma + SQLite (optional)
 
 `prisma/schema.prisma` mirrors the project's data model one-to-one. In environments where
@@ -157,9 +218,11 @@ npx playwright test
 ```
 
 `e2e-tests/` covers dashboard project creation and phase management (add, rename, task,
-task description/notes, status, copy, delete).
+task description/notes, status, copy, delete), the Codex provider UI, and the desktop
+release wiring (packaged entry point, standalone handoff and workflow).
 
 ## Tech stack
 
-Next.js 15 (App Router) · TypeScript · Tailwind CSS · Shadcn/UI · Prisma (reference schema) ·
-`@dnd-kit` · `next-themes` · Sonner · Zod · Recharts.
+Next.js 15 (App Router) · TypeScript · Tailwind CSS · Shadcn/UI · Electron +
+electron-builder · Prisma (reference schema) · `@dnd-kit` · `next-themes` · Sonner · Zod ·
+Recharts.

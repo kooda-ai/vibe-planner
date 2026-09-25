@@ -33,6 +33,12 @@ const tr: Dictionary = {
     confirm: "Onayla",
     optional: "isteğe bağlı",
   },
+  updates: {
+    available: "Vibe Planner {version} indiriliyor…",
+    downloading: "Güncelleme indiriliyor… {percent}%",
+    downloaded: "Güncelleme hazır — uygulamadan çıkınca kurulacak.",
+    error: "Güncellemeler denetlenemedi.",
+  },
   dashboard: {
     title: "Projeler",
     subtitle:

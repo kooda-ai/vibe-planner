@@ -20,6 +20,10 @@
 # production
 /build
 
+# desktop build (esbuild output + electron-builder artifacts)
+/dist-electron/
+/dist/
+
 # misc
 .DS_Store
 *.pem
