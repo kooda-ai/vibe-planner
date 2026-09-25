@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { CODEX_CLIENT_VERSIONS } from "../src/lib/ai/codex-oauth";
 
 /**
- * Covers the "OpenAI (ChatGPT ile giriş)" provider type without ever touching
+ * Covers the "OpenAI (Sign in with ChatGPT)" provider type without ever touching
  * the live OAuth flow: selecting the type must hide the API-key/base-URL fields
  * and offer the ChatGPT connect button instead.
  */
@@ -21,7 +21,7 @@ test("selecting the ChatGPT provider type swaps the API key for a connect button
 
   await page.getByTestId("provider-type-select").click();
   await page
-    .getByRole("option", { name: "OpenAI (ChatGPT ile giriş)" })
+    .getByRole("option", { name: "OpenAI (Sign in with ChatGPT)" })
     .click();
 
   // Credentials are replaced by the browser login.
@@ -92,7 +92,7 @@ test("the default Codex catalogue avoids models ChatGPT accounts cannot use", as
   await page.getByTestId("add-provider-button").click();
   await page.getByTestId("provider-type-select").click();
   await page
-    .getByRole("option", { name: "OpenAI (ChatGPT ile giriş)" })
+    .getByRole("option", { name: "OpenAI (Sign in with ChatGPT)" })
     .click();
 
   const seeded = await page.getByTestId("provider-models-input").inputValue();

@@ -66,17 +66,19 @@ test("manage phases: add, rename, tasks, status, copy and delete", async ({
 
   // --- copy the phase to the clipboard --------------------------------------
   await firstPhase.getByTestId("copy-phase-button").click();
-  await expect(page.getByText("panoya kopyalandı", { exact: false }).first()).toBeVisible();
+  await expect(
+    page.getByText("Copied to clipboard", { exact: false }).first(),
+  ).toBeVisible();
 
   const clipboard = await page.evaluate(() => navigator.clipboard.readText());
   expect(clipboard).toContain(`# ${name}`);
   expect(clipboard).toContain("## Phase 1: Phase: Design the schema");
   expect(clipboard).toContain("- [x] Model the Project table");
   expect(clipboard).toContain(
-    "  Açıklama: Create the Project/Phase/Task models and migrate them.",
+    "  Description: Create the Project/Phase/Task models and migrate them.",
   );
   expect(clipboard).toContain(
-    "  Notlar: Researched: Prisma supports cascade deletes",
+    "  Notes: Researched: Prisma supports cascade deletes",
   );
 
   // --- mark the phase done ---------------------------------------------------

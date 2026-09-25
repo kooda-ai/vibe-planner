@@ -70,4 +70,9 @@ To ensure consistency and leverage the chosen stack effectively, please follow t
     *   Write all new code in TypeScript.
     *   Strive for strong typing and leverage TypeScript's features to improve code quality and maintainability. Avoid using `any` where possible.
 
+14. **Language**:
+    *   **English is the project's main language**: code, comments, docs (README, AI_RULES), commit messages, test names and spec files are written in English.
+    *   UI copy lives in the i18n dictionaries under `src/lib/dictionaries/`. `en.ts` is the source of truth for the `Dictionary` type; `tr.ts` is the Turkish translation and must implement exactly the same keys.
+    *   The app defaults to English and the user can switch to Turkish in the header.
+
 By following these guidelines, we can build a more robust, maintainable, and consistent application.

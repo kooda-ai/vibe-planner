@@ -1,6 +1,8 @@
-import type { Dictionary } from "./tr";
-
-const en: Dictionary = {
+/**
+ * English is the source of truth: the `Dictionary` type is derived from this
+ * object, so every other locale must implement exactly these keys.
+ */
+const en = {
   app: {
     name: "Vibe Planner",
     tagline: "Split your idea into phases, paste them into your vibe coder.",
@@ -233,6 +235,13 @@ const en: Dictionary = {
     in_progress: "In progress",
     done: "Done",
   },
-};
+} as const;
 
 export default en;
+
+type DeepStrings<T> = {
+  [K in keyof T]: T[K] extends string ? string : DeepStrings<T[K]>;
+};
+
+/** The translation shape every dictionary must implement (EN is the source of truth). */
+export type Dictionary = DeepStrings<typeof en>;

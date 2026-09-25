@@ -1,4 +1,6 @@
-const tr = {
+import type { Dictionary } from "./en";
+
+const tr: Dictionary = {
   app: {
     name: "Vibe Planner",
     tagline: "Fikrini phase'lere böl, vibe coder'a yapıştır.",
@@ -232,13 +234,6 @@ const tr = {
     in_progress: "Devam ediyor",
     done: "Tamamlandı",
   },
-} as const;
-
-export default tr;
-
-type DeepStrings<T> = {
-  [K in keyof T]: T[K] extends string ? string : DeepStrings<T[K]>;
 };
 
-/** The translation shape every dictionary must implement (TR is the source of truth). */
-export type Dictionary = DeepStrings<typeof tr>;
+export default tr;

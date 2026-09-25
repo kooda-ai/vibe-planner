@@ -7,9 +7,9 @@ export interface FormatLabels {
 }
 
 const DEFAULT_LABELS: FormatLabels = {
-  tasks: "Görevler",
-  notes: "Notlar",
-  description: "Açıklama",
+  tasks: "Tasks",
+  notes: "Notes",
+  description: "Description",
 };
 
 /** Indents a multi-line block so it stays nested under its list item. */

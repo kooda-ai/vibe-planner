@@ -9,16 +9,16 @@ import {
   useState,
 } from "react";
 
-import en from "./dictionaries/en";
-import tr, { type Dictionary } from "./dictionaries/tr";
+import en, { type Dictionary } from "./dictionaries/en";
+import tr from "./dictionaries/tr";
 
 export type Locale = "tr" | "en";
 
 export const LOCALES: Locale[] = ["tr", "en"];
 
 const DICTIONARIES: Record<Locale, Dictionary> = {
-  tr: tr as unknown as Dictionary,
   en,
+  tr,
 };
 
 const STORAGE_KEY = "planner.locale";
@@ -50,9 +50,9 @@ function interpolate(text: string, vars?: Record<string, string | number>) {
 }
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  // Always start with TR so server and first client render agree, then apply
-  // the stored preference after mount.
-  const [locale, setLocaleState] = useState<Locale>("tr");
+  // English is the default; always start there so server and first client render
+  // agree, then apply the stored preference after mount.
+  const [locale, setLocaleState] = useState<Locale>("en");
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
