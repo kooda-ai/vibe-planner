@@ -1,4 +1,4 @@
-import { readSse } from "./openai";
+import type { ToolSpec } from "../types";
 import {
   CODEX_CLIENT_VERSIONS,
   ORIGINATOR,
@@ -7,11 +7,14 @@ import {
   responsesEndpoint,
   selectCodexModels,
 } from "./codex-oauth";
+import { readSse } from "./openai";
 import {
   ProviderError,
   type AIProvider,
   type ChatMessage,
   type ChatStreamOptions,
+  type ChatTurnOptions,
+  type ProviderEvent,
 } from "./types";
 
 /**
@@ -23,12 +26,18 @@ import {
  * `response.completed`, …). Both differences are normalised here so the rest of
  * the app keeps consuming plain text chunks.
  *
+ * Tool calls use the Responses item types `function_call` /
+ * `function_call_output`, and the assistant's raw output items have to be sent
+ * back on the next turn — `providerItems` does that.
+ *
  * The flow is unofficial; if OpenAI changes it, this file is the place to fix.
  */
 
 interface ResponsesInputItem {
-  role: "user" | "assistant";
-  content: string;
+  role?: "user" | "assistant";
+  content?: string;
+  type?: string;
+  [key: string]: unknown;
 }
 
 /** Maps the app's chat messages onto a Responses API request body. */
@@ -41,13 +50,41 @@ function buildResponseInput(messages: ChatMessage[]): {
     .map((message) => message.content)
     .join("\n\n");
 
-  const input: ResponsesInputItem[] = messages
-    .filter((message): message is ChatMessage & { role: "user" | "assistant" } =>
-      message.role !== "system",
-    )
-    .map((message) => ({ role: message.role, content: message.content }));
+  const input: ResponsesInputItem[] = [];
+  for (const message of messages) {
+    if (message.role === "system") continue;
+    if (message.role === "tool") {
+      input.push({
+        type: "function_call_output",
+        call_id: message.toolCallId ?? "",
+        output: message.content,
+      });
+      continue;
+    }
+    if (message.role === "assistant") {
+      // Replay the stored output items (reasoning + function_call) verbatim;
+      // the backend rejects a function_call_output whose matching call is
+      // missing from the conversation.
+      if (message.providerItems?.length) {
+        input.push(...(message.providerItems as ResponsesInputItem[]));
+        continue;
+      }
+      input.push({ role: "assistant", content: message.content });
+      continue;
+    }
+    input.push({ role: "user", content: message.content });
+  }
 
   return { instructions, input };
+}
+
+function toCodexTools(tools: ToolSpec[]): Record<string, unknown>[] {
+  return tools.map((tool) => ({
+    type: "function",
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.inputSchema ?? { type: "object", properties: {} },
+  }));
 }
 
 function describeSseError(parsed: Record<string, unknown>): string | null {
@@ -63,57 +100,14 @@ function describeSseError(parsed: Record<string, unknown>): string | null {
 }
 
 export const codexProvider: AIProvider = {
-  async *chatStream({
-    apiKey,
-    model,
-    messages,
-    accountId,
-    signal,
-  }: ChatStreamOptions) {
-    const { instructions, input } = buildResponseInput(messages);
-
-    const response = await fetch(responsesEndpoint(apiKey), {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${apiKey}`,
-        originator: ORIGINATOR,
-        ...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
-      },
-      body: JSON.stringify({
-        model,
-        instructions,
-        input,
-        stream: true,
-        store: false,
-      }),
-      signal,
-    });
-
-    if (!response.ok || !response.body) {
-      throw new ProviderError(await describeError(response), response.status);
+  async *chatStream(options: ChatStreamOptions) {
+    for await (const event of streamCodex({ ...options }, false)) {
+      if (event.type === "text") yield event.text;
     }
+  },
 
-    for await (const payload of readSse(response.body)) {
-      if (payload === "[DONE]") return;
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(payload) as Record<string, unknown>;
-      } catch {
-        continue; // keep-alive / non-JSON frame
-      }
-
-      const failure = describeSseError(parsed);
-      if (failure) throw new ProviderError(failure);
-
-      const type = typeof parsed.type === "string" ? parsed.type : "";
-      if (type === "response.output_text.delta") {
-        const delta = parsed.delta;
-        if (typeof delta === "string" && delta) yield delta;
-        continue;
-      }
-      if (type === "response.completed" || type === "response.done") return;
-    }
+  async *streamTurn(options: ChatTurnOptions): AsyncGenerator<ProviderEvent> {
+    yield* streamCodex(options, Boolean(options.tools?.length));
   },
 
   async listModels({ apiKey, accountId }) {
@@ -168,6 +162,90 @@ export const codexProvider: AIProvider = {
     return best;
   },
 };
+
+async function* streamCodex(
+  { apiKey, model, messages, tools, accountId, signal }: ChatTurnOptions,
+  withTools: boolean,
+): AsyncGenerator<ProviderEvent> {
+  const { instructions, input } = buildResponseInput(messages);
+
+  const response = await fetch(responsesEndpoint(apiKey), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${apiKey}`,
+      originator: ORIGINATOR,
+      ...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
+    },
+    body: JSON.stringify({
+      model,
+      instructions,
+      input,
+      stream: true,
+      store: false,
+      ...(withTools && tools?.length
+        ? { tools: toCodexTools(tools), tool_choice: "auto" }
+        : {}),
+    }),
+    signal,
+  });
+
+  if (!response.ok || !response.body) {
+    throw new ProviderError(await describeError(response), response.status);
+  }
+
+  /** Output items collected so the adapter can replay them on the next turn. */
+  const items: unknown[] = [];
+
+  for await (const payload of readSse(response.body)) {
+    if (payload === "[DONE]") break;
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(payload) as Record<string, unknown>;
+    } catch {
+      continue; // keep-alive / non-JSON frame
+    }
+
+    const failure = describeSseError(parsed);
+    if (failure) throw new ProviderError(failure);
+
+    const type = typeof parsed.type === "string" ? parsed.type : "";
+    if (type === "response.output_text.delta") {
+      const delta = parsed.delta;
+      if (typeof delta === "string" && delta) yield { type: "text", text: delta };
+      continue;
+    }
+    if (type === "response.output_item.done") {
+      const item = parsed.item as Record<string, unknown> | undefined;
+      if (!item) continue;
+      items.push(item);
+      if (item.type === "function_call") {
+        yield {
+          type: "tool_call",
+          id: String(item.call_id ?? ""),
+          name: String(item.name ?? ""),
+          args: String(item.arguments ?? ""),
+        };
+      }
+      continue;
+    }
+    if (type === "response.completed" || type === "response.done") {
+      const responseData = parsed.response as
+        | { output?: unknown[]; stop_reason?: string; status?: string }
+        | undefined;
+      const output = responseData?.output;
+      if (Array.isArray(output) && output.length) items.splice(0, items.length, ...output);
+      yield {
+        type: "done",
+        stopReason: responseData?.status ?? responseData?.stop_reason,
+        providerItems: items,
+      };
+      return;
+    }
+  }
+
+  yield { type: "done", providerItems: items };
+}
 
 async function describeError(response: Response): Promise<string> {
   try {

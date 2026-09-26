@@ -136,6 +136,8 @@ export interface AppSettings {
   providers: ProviderSummary[];
   defaultProviderId: string | null;
   defaultModel: string | null;
+  mcpServers: MCPServerConfig[];
+  skills: SkillConfig[];
 }
 
 /**
@@ -156,6 +158,79 @@ export interface StoredProvider {
   /** Access token expiry as epoch milliseconds. */
   expiresAt?: number;
   accountEmail?: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              MCP servers                                   */
+/* -------------------------------------------------------------------------- */
+
+export type MCPTransportType = "stdio" | "http" | "sse";
+
+export const MCP_TRANSPORT_TYPES: MCPTransportType[] = ["stdio", "http", "sse"];
+
+/**
+ * A user-defined MCP server.
+ *
+ * `stdio` servers spawn a local process (`command` + `args` + `env`); `http`
+ * and `sse` servers are remote (`url` + `headers`). Secrets in `env`/`headers`
+ * never leave the server, like provider API keys.
+ */
+export interface MCPServerConfig {
+  id: string;
+  name: string;
+  transport: MCPTransportType;
+  /** stdio */
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  /** http / sse */
+  url?: string;
+  headers?: Record<string, string>;
+  /** Disabled servers are skipped when tools are collected for a chat. */
+  enabled: boolean;
+}
+
+/** A tool advertised by a connected MCP server. */
+export interface MCPToolInfo {
+  /** Namespaced, provider-safe name: `mcp__<server>__<tool>`. */
+  name: string;
+  /** Raw tool name the server understands. */
+  toolName: string;
+  serverId: string;
+  serverName: string;
+  description: string;
+  /** JSON Schema of the tool arguments, passed through to the provider. */
+  inputSchema: Record<string, unknown>;
+  /** True when the call runs without asking for confirmation. */
+  autoApprove: boolean;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                  Skills                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A reusable instruction template. Globally enabled/disabled in Settings and
+ * activated per project; `/slug` in a chat message forces one for that turn.
+ */
+export interface SkillConfig {
+  id: string;
+  name: string;
+  /** Slug used for the `/slash` command, derived from the name. */
+  slug: string;
+  /** Short "when to use this" line shown to the model. */
+  description: string;
+  /** The instruction text injected into the system prompt. */
+  body: string;
+  category?: string;
+  enabled: boolean;
+}
+
+/** A tool in the shape every provider adapter understands. */
+export interface ToolSpec {
+  name: string;
+  description?: string;
+  inputSchema: Record<string, unknown>;
 }
 
 /* -------------------------------------------------------------------------- */

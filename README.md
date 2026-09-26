@@ -23,8 +23,13 @@ lets you manage each phase with a task list + notes + status, and copies any pha
 - **Multiple AI providers** — OpenAI, Anthropic, a custom OpenAI-compatible `base URL`, and
   **Sign in with ChatGPT (Codex)**. API keys and OAuth tokens are stored server-side only
   and are never sent to the client.
-- **Settings** — add/remove providers, model selection, theme, language (EN/TR) and
-  export/import.
+- **MCP tools** — connect Model Context Protocol servers (stdio / Streamable HTTP /
+  legacy SSE) and let the AI call their tools during chat. Per-tool "auto-approve";
+  everything else asks for confirmation inline before it runs.
+- **Skills** — reusable instruction templates managed in Settings, activated per
+  project (or all enabled ones by default) and invokable with `/slug` in chat.
+- **Settings** — add/remove providers, model selection, MCP servers, skills, theme,
+  language (EN/TR) and export/import.
 - **Theme & language** — light/dark/system via `next-themes`, plus a lightweight EN/TR
   dictionary (English is the default).
 
@@ -94,6 +99,47 @@ provider that signs in with **your own ChatGPT Plus/Pro account** instead of an 
   New connections start from Codex CLI's own catalogue (`gpt-6-astra`, `gpt-6-sol`).
 - There is no session concept: a **single ChatGPT account is connected for the whole
   server**, and every browser uses that account.
+
+## MCP servers (agentic tool calling)
+
+**Settings → MCP Servers** connects [Model Context Protocol](https://modelcontextprotocol.io)
+servers. Three transports are supported:
+
+| Transport | Fields | Notes |
+| --- | --- | --- |
+| `stdio` | `command`, `args`, `env` | **Spawns a local process on this machine, with your permissions.** |
+| `http` | `url`, `headers` | Modern Streamable HTTP transport. |
+| `sse` | `url`, `headers` | Legacy Server-Sent-Events transport. |
+
+- **Add server** fills the fields by hand; **Import** accepts a Claude Desktop / Cursor
+  style `mcpServers` JSON block (both `command`/`args`/`env` and `url`/`headers`/`type`).
+- **Test / List tools** connects, lists the catalogue and reveals an **Auto-approve**
+  switch per tool. A tool without auto-approve **asks for confirmation in the chat**
+  before every call; the answer is submitted through
+  `POST /api/projects/[id]/chat/approve` and a 120 s timeout counts as "deny".
+- Tools are namespaced `mcp__<server>__<tool>` so two servers can expose the same tool
+  name, and so the name fits OpenAI's `^[a-zA-Z0-9_-]{1,64}$` limit.
+- The agent loop is capped at **8 turns** per message and truncates tool results at
+  **20 KB**.
+- **Tool calls are ephemeral**: they appear live in the chat's *Tool activity* panel and
+  are never written to the chat history. Only the final prose + plan JSON persist.
+- A server that cannot be reached does not break the chat — its tools are simply absent.
+  An endpoint that rejects tool definitions falls back to a plain completion.
+
+> ⚠️ **Security**: stdio servers run real local commands. Only add servers you trust, and
+> leave auto-approve off for anything that writes data.
+
+## Skills
+
+**Settings → Skills** stores reusable instruction templates (name, short description,
+body, optional category). Each skill gets a `/slug` derived from its name.
+
+- Skills are **globally enabled/disabled** in Settings and **activated per project** from
+  the chat header's *Skills* popover (checkboxes, saved per project).
+- With no project selection, **every enabled skill applies**.
+- Typing `/` in the chat input opens an autocomplete of the project's skills; the
+  selected ones are shown as chips and injected into the system prompt. `/slug` in a
+  message forces that skill for the turn even when it is not in the project selection.
 
 ## Desktop app (Electron)
 
@@ -189,7 +235,13 @@ npx prisma migrate dev --name init
 | `PATCH/DELETE /api/phases/[id]` | update / delete phase |
 | `POST /api/phases/[id]/tasks` | create task |
 | `PATCH/DELETE /api/tasks/[id]` | update / delete task |
-| `POST /api/projects/[id]/chat` | streaming AI answer + plan application (NDJSON) |
+| `POST /api/projects/[id]/chat` | streaming AI answer, tool-calling agent loop + plan application (NDJSON) |
+| `POST /api/projects/[id]/chat/approve` | resolves a pending tool approval (`{callId, approved}`) |
+| `GET/PUT /api/projects/[id]/skills` | the project's skill selection |
+| `GET/PUT/DELETE /api/mcp/servers` | MCP server CRUD (secrets masked on read) |
+| `GET /api/mcp/servers/[id]/tools` | connect + list a server's tools (with auto-approve flags) |
+| `POST /api/mcp/import` | parse an `mcpServers` JSON block into server configs |
+| `GET/PUT /api/skills` | skill CRUD (slugs derived from names) |
 | `GET/PUT /api/settings` | provider and model settings (keys hidden) |
 | `POST /api/models` | model list for the selected provider (live catalogue for Codex) |
 | `POST /api/oauth/codex/start` | start the ChatGPT login (`authUrl` + `state`) |
@@ -219,6 +271,16 @@ npx prisma migrate dev --name init
   "the AI could not produce a valid plan" warning.
 - **Storage abstraction** — all data access is centralized in `src/lib/db.ts`.
 - **Context window** — the prompt receives the last 20 messages plus a phase summary.
+  Tool turns are never persisted, so the window cannot grow because of them.
+- **MCP layer** — `src/lib/mcp/`: `config.ts` (config → SDK transport), `client.ts`
+  (cached connections on `globalThis`), `tools.ts` (namespacing + tool specs) and
+  `approvals.ts` (pending-approval registry on `globalThis`, so it survives HMR).
+- **Agent loop** — `src/lib/ai/agent.ts` consumes `streamTurn` events, streams prose,
+  runs approved tools and feeds the results back. Provider adapters that cannot do tools
+  are wrapped so the chat simply continues without them.
+- **Settings keys** — beyond providers, `mcpServers`, `skills`, `projectSkills`
+  (`{ [projectId]: string[] }`) and `toolPermissions` (`{ "<serverId>:<tool>": boolean }`)
+  live in the same `settings` record, so no schema change is needed.
 
 ## Tests
 
@@ -228,11 +290,12 @@ npx playwright test
 ```
 
 `e2e-tests/` covers dashboard project creation and phase management (add, rename, task,
-task description/notes, status, copy, delete), the Codex provider UI, and the desktop
-release wiring (packaged entry point, standalone handoff and workflow).
+task description/notes, status, copy, delete), the Codex provider UI, MCP server add /
+import / delete, skill CRUD, the per-project skill picker with `/` slash autocomplete, and
+the desktop release wiring (packaged entry point, standalone handoff and workflow).
 
 ## Tech stack
 
 Next.js 15 (App Router) · TypeScript · Tailwind CSS · Shadcn/UI · Electron (+ embedded
-Node.js 24 LTS) + electron-builder · Prisma (reference schema) · `@dnd-kit` · `next-themes` ·
-Sonner · Zod · Recharts.
+Node.js 24 LTS) + electron-builder · Prisma (reference schema) · `@dnd-kit` ·
+`@modelcontextprotocol/sdk` · `next-themes` · Sonner · Zod · Recharts.

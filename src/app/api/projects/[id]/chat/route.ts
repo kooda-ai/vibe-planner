@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getProvider } from "@/lib/ai";
+import { runAgentTurn } from "@/lib/ai/agent";
 import { ensureFreshCodexAuth } from "@/lib/ai/codex-token";
 import { buildChatMessages } from "@/lib/ai/prompt";
 import { ProviderError, type ChatMessage } from "@/lib/ai/types";
@@ -10,9 +11,19 @@ import {
   getProjectDetail,
   getSettingsRecord,
 } from "@/lib/db";
+import { collectTools, type NamespacedTool } from "@/lib/mcp/tools";
 import { extractPlan } from "@/lib/parse-phases";
-import { visiblePrefix } from "@/lib/plan-block";
-import { isCodexProvider, pickProvider, readProviders } from "@/lib/settings";
+import {
+  isCodexProvider,
+  parseMCPServers,
+  parseSkills,
+  parseToolPermissions,
+  pickProvider,
+  readProjectSkillSelection,
+  readProviders,
+  SETTINGS_KEYS,
+} from "@/lib/settings";
+import { resolveActiveSkills } from "@/lib/skills";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -20,18 +31,41 @@ export const maxDuration = 300;
 type Params = { params: Promise<{ id: string }> };
 
 interface StreamEvent {
-  type: "delta" | "done" | "error";
+  type:
+    | "delta"
+    | "done"
+    | "error"
+    | "tool_call"
+    | "tool_result"
+    | "tool_unavailable"
+    | "tool_approval_required"
+    | "tool_approval_resolved";
   text?: string;
   body?: string;
   phasesUpdated?: number;
   invalidPlan?: boolean;
   message?: string;
   messageId?: string;
+  /* tool activity (transient — never persisted) */
+  callId?: string;
+  name?: string;
+  toolName?: string;
+  serverName?: string;
+  args?: string;
+  ok?: boolean;
+  summary?: string;
+  approved?: boolean;
+  /** Failing server names, joined for display. */
+  servers?: string;
 }
 
 /**
  * Streams an AI answer, hides the trailing ```json block from the viewer, then
  * applies the parsed plan to the project's phases.
+ *
+ * Answers may involve MCP tools: the agent loop runs them and reports each step
+ * as a transient event so the UI can show live tool activity. Approvals pause
+ * the loop until `POST .../chat/approve` answers.
  */
 export async function POST(request: Request, { params }: Params) {
   const { id } = await params;
@@ -88,6 +122,16 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: "missing_api_key" }, { status: 400 });
   }
 
+  const servers = parseMCPServers(record[SETTINGS_KEYS.mcpServers]);
+  const permissions = parseToolPermissions(record[SETTINGS_KEYS.toolPermissions]);
+  const skills = parseSkills(record[SETTINGS_KEYS.skills]);
+  const projectSkillIds = await readProjectSkillSelection(id);
+  const activeSkills = resolveActiveSkills({
+    skills,
+    projectSkillIds,
+    prompt,
+  });
+
   const history: ChatMessage[] = detail.messages.map((message) => ({
     role: message.role,
     content: message.content,
@@ -99,7 +143,16 @@ export async function POST(request: Request, { params }: Params) {
     history,
     prompt,
     locale,
+    skills: activeSkills,
   });
+
+  // Collect MCP tools up front. A server that fails to connect is skipped and
+  // reported, so a broken MCP config never blocks a normal chat.
+  const collected = await collectTools(servers);
+  const tools: NamespacedTool[] = collected.tools;
+  const autoApproved = new Set(
+    tools.filter((tool) => permissions[tool.name] === true).map((tool) => tool.name),
+  );
 
   await addMessage({ projectId: id, role: "user", content: prompt });
 
@@ -113,24 +166,75 @@ export async function POST(request: Request, { params }: Params) {
       };
 
       let raw = "";
-      let visibleLength = 0;
+
+      // A server that cannot be reached is non-fatal, but the user should know
+      // those tools are missing from this turn.
+      if (collected.failures.length) {
+        send({
+          type: "tool_unavailable",
+          servers: collected.failures.map((failure) => failure.serverName).join(", "),
+        });
+      }
 
       try {
-        for await (const chunk of provider.chatStream({
-          apiKey: credential,
-          baseUrl: choice.provider.baseUrl,
-          model: choice.model,
-          messages,
-          accountId,
+        for await (const event of runAgentTurn({
+          provider,
+          streamOptions: {
+            apiKey: credential,
+            baseUrl: choice.provider.baseUrl,
+            model: choice.model,
+            messages,
+            accountId,
+            signal: request.signal,
+          },
+          tools,
+          servers,
+          autoApproved,
           signal: request.signal,
         })) {
-          raw += chunk;
-          // The structured plan is only for the machine: forward the prose up
-          // to the point where the hidden block begins and nothing after it.
-          const visible = visiblePrefix(raw);
-          if (visible.length > visibleLength) {
-            send({ type: "delta", text: visible.slice(visibleLength) });
-            visibleLength = visible.length;
+          switch (event.type) {
+            case "delta":
+              send({ type: "delta", text: event.text });
+              break;
+            case "final":
+              raw = event.text;
+              break;
+            case "tool_call":
+              send({
+                type: "tool_call",
+                callId: event.callId,
+                name: event.name,
+                toolName: event.toolName,
+                serverName: event.serverName,
+                args: event.args,
+              });
+              break;
+            case "tool_approval_required":
+              send({
+                type: "tool_approval_required",
+                callId: event.callId,
+                name: event.name,
+                toolName: event.toolName,
+                serverName: event.serverName,
+                args: event.args,
+              });
+              break;
+            case "tool_approval_resolved":
+              send({
+                type: "tool_approval_resolved",
+                callId: event.callId,
+                approved: event.approved,
+              });
+              break;
+            case "tool_result":
+              send({
+                type: "tool_result",
+                callId: event.callId,
+                name: event.name,
+                ok: event.ok,
+                summary: event.summary,
+              });
+              break;
           }
         }
       } catch (error) {
@@ -150,6 +254,8 @@ export async function POST(request: Request, { params }: Params) {
         return;
       }
 
+      // The agent's `final` event carries the complete answer, hidden plan
+      // block included, so the plan can be applied exactly as before.
       const { plan, invalid, body: visibleBody } = extractPlan(raw);
 
       let phasesUpdated = 0;

@@ -52,6 +52,8 @@ model Task {
   done        Boolean @default(false)
 }
 
+// Only user/assistant prose is stored. Tool calls and tool results made by the
+// MCP agent loop are ephemeral and deliberately never persisted.
 model Message {
   id        String   @id @default(cuid())
   projectId String
@@ -61,6 +63,10 @@ model Message {
   createdAt DateTime @default(now())
 }
 
+// Key/value settings. Beyond provider config this record holds the JSON blobs
+// `mcpServers`, `skills`, `projectSkills` ({ [projectId]: skillId[] }) and
+// `toolPermissions` ({ "<serverId>:<tool>": boolean }), which is why adding MCP
+// and Skills required no schema change.
 model Setting {
   key   String @id
   value String

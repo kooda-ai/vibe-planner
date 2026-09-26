@@ -1,5 +1,5 @@
 import type { ChatMessage } from "./types";
-import type { Phase, Project } from "../types";
+import type { Phase, Project, SkillConfig } from "../types";
 
 /** How many past chat messages are sent as context (simple context window). */
 export const CONTEXT_MESSAGE_LIMIT = 20;
@@ -48,10 +48,39 @@ Also:
 - When you are unsure, state your assumption explicitly in the phase notes.
 - If needed, expand an existing phase: reuse that phase's id and enrich its content using this structure.`;
 
+/**
+ * Renders the active skills as a SKILLS section. Each skill's description tells
+ * the model *when* to apply it, and the body is the instruction text itself.
+ */
+function buildSkillsSection(skills: SkillConfig[]): string {
+  if (!skills.length) return "";
+  const rendered = skills
+    .map((skill) =>
+      [
+        `- ${skill.name} (/${skill.slug})`,
+        skill.description ? `  When to use: ${skill.description}` : null,
+        `  Instructions:\n${indent(skill.body)}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    )
+    .join("\n\n");
+
+  return `\n\nSKILLS THE USER HAS ENABLED\nApply these instructions in addition to the rules above. They take precedence over the default style when they conflict. A skill may be invoked explicitly with /slug in a message.\n${rendered}`;
+}
+
+function indent(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => `    ${line}`)
+    .join("\n");
+}
+
 export function buildSystemPrompt(
   project: Project,
   phases: Phase[],
   locale: "tr" | "en",
+  skills: SkillConfig[] = [],
 ): string {
   const language = locale === "tr" ? "Turkish" : "English";
   const phaseContext = phases.length
@@ -109,7 +138,7 @@ PHASE UPDATE RULES
 - Write the slice's purpose and scope briefly in the phase "description", and fill the "notes" field with the sections from the detailed plan structure above (goal, out of scope, context, preconditions, constraints, data model/API, tests, acceptance criteria, watch out, output, verification).
 - Only provide "status" when it is meaningful; most of the time "pending" is correct.
 - Give each phase 3-7 clear, verifiable tasks and fill each task's "description" and "notes" fields.
-- If the user is only chatting (not asking for a plan), still end with a \`{"phases": []}\` block.`;
+- If the user is only chatting (not asking for a plan), still end with a \`{"phases": []}\` block.${buildSkillsSection(skills)}`;
 }
 
 export function buildChatMessages(options: {
@@ -118,10 +147,14 @@ export function buildChatMessages(options: {
   history: ChatMessage[];
   prompt: string;
   locale: "tr" | "en";
+  skills?: SkillConfig[];
 }): ChatMessage[] {
-  const { project, phases, history, prompt, locale } = options;
+  const { project, phases, history, prompt, locale, skills } = options;
   return [
-    { role: "system", content: buildSystemPrompt(project, phases, locale) },
+    {
+      role: "system",
+      content: buildSystemPrompt(project, phases, locale, skills ?? []),
+    },
     ...history.slice(-CONTEXT_MESSAGE_LIMIT),
     { role: "user", content: prompt },
   ];

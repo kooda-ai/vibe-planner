@@ -1,5 +1,7 @@
 import type {
   AppSettings,
+  MCPServerConfig,
+  MCPToolInfo,
   Message,
   Phase,
   PhaseStatus,
@@ -7,6 +9,7 @@ import type {
   ProjectDetail,
   ProjectSummary,
   ProviderSummary,
+  SkillConfig,
   Task,
 } from "./types";
 
@@ -165,6 +168,95 @@ export function resetAllData() {
   return request<{ ok: boolean }>("/api/data", { method: "DELETE" });
 }
 
+/* -------------------------------- MCP servers ------------------------------ */
+
+export function fetchMCPServers() {
+  return request<{ servers: MCPServerConfig[] }>("/api/mcp/servers");
+}
+
+/** Saves the whole list; each server may carry its per-tool approvals. */
+export function saveMCPServers(
+  servers: (Partial<MCPServerConfig> & {
+    tools?: { toolName: string; autoApprove: boolean }[];
+  })[],
+) {
+  return request<{ servers: MCPServerConfig[] }>("/api/mcp/servers", {
+    method: "PUT",
+    body: JSON.stringify({ servers }),
+  });
+}
+
+export function deleteMCPServer(id: string) {
+  return request<{ servers: MCPServerConfig[] }>(
+    `/api/mcp/servers?id=${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+}
+
+/** "Test / List tools": connects and pulls the server's catalogue. */
+export async function testMCPServer(
+  id: string,
+): Promise<{ tools: MCPToolInfo[] } | { error: string }> {
+  const response = await fetch(
+    `/api/mcp/servers/${encodeURIComponent(id)}/tools`,
+  );
+  const data = (await response.json().catch(() => ({}))) as {
+    tools?: MCPToolInfo[];
+    error?: string;
+  };
+  if (!response.ok) return { error: data.error ?? `http_${response.status}` };
+  return { tools: data.tools ?? [] };
+}
+
+export function importMCPServers(json: string) {
+  return request<{
+    servers: Omit<MCPServerConfig, "id">[];
+    errors: string[];
+  }>("/api/mcp/import", {
+    method: "POST",
+    body: JSON.stringify({ json }),
+  });
+}
+
+/* ---------------------------------- skills --------------------------------- */
+
+export function fetchSkills() {
+  return request<{ skills: SkillConfig[] }>("/api/skills");
+}
+
+export function saveSkills(skills: Partial<SkillConfig>[]) {
+  return request<{ skills: SkillConfig[] }>("/api/skills", {
+    method: "PUT",
+    body: JSON.stringify({ skills }),
+  });
+}
+
+/** `null` means "no explicit selection" — every enabled skill applies. */
+export function fetchProjectSkills(projectId: string) {
+  return request<{ skillIds: string[] | null }>(
+    `/api/projects/${projectId}/skills`,
+  );
+}
+
+export function saveProjectSkills(projectId: string, skillIds: string[]) {
+  return request<{ skillIds: string[] | null }>(
+    `/api/projects/${projectId}/skills`,
+    { method: "PUT", body: JSON.stringify({ skillIds }) },
+  );
+}
+
+/** Answers a pending tool approval so the paused chat stream can continue. */
+export function approveToolCall(
+  projectId: string,
+  callId: string,
+  approved: boolean,
+) {
+  return request<{ ok: boolean }>(`/api/projects/${projectId}/chat/approve`, {
+    method: "POST",
+    body: JSON.stringify({ callId, approved }),
+  });
+}
+
 /* ------------------------------ ChatGPT login ------------------------------ */
 
 export type CodexStatus =
@@ -212,6 +304,15 @@ export async function disconnectCodexProvider(id: string) {
 
 /* ----------------------------------- chat ---------------------------------- */
 
+/** A tool the agent is running, as shown in the transient activity list. */
+export interface ChatToolEvent {
+  callId: string;
+  name: string;
+  toolName?: string;
+  serverName?: string;
+  args?: string;
+}
+
 export interface ChatStreamHandlers {
   onDelta?: (text: string) => void;
   onDone?: (event: {
@@ -221,6 +322,21 @@ export interface ChatStreamHandlers {
     messageId?: string;
   }) => void;
   onError?: (message: string) => void;
+  /** Tool activity events — transient, never persisted to the chat history. */
+  onToolCall?: (event: ChatToolEvent) => void;
+  onToolApprovalRequired?: (event: ChatToolEvent) => void;
+  onToolApprovalResolved?: (event: {
+    callId: string;
+    approved: boolean;
+  }) => void;
+  onToolResult?: (event: {
+    callId: string;
+    name: string;
+    ok: boolean;
+    summary?: string;
+  }) => void;
+  /** Enabled MCP servers that could not be reached this turn. */
+  onToolUnavailable?: (serverNames: string) => void;
 }
 
 /** Streams an NDJSON chat response, decoding each event as it arrives. */
@@ -272,35 +388,90 @@ export async function streamChat(
   }
 }
 
-function dispatch(
-  event: {
-    type: string;
-    text?: string;
-    body?: string;
-    phasesUpdated?: number;
-    invalidPlan?: boolean;
-    message?: string;
-    messageId?: string;
-  },
-  handlers: ChatStreamHandlers,
-) {
-  if (event.type === "delta" && event.text) handlers.onDelta?.(event.text);
-  if (event.type === "error") handlers.onError?.(event.message ?? "unknown_error");
-  if (event.type === "done") {
-    handlers.onDone?.({
-      body: event.body ?? "",
-      phasesUpdated: event.phasesUpdated ?? 0,
-      invalidPlan: Boolean(event.invalidPlan),
-      messageId: event.messageId,
-    });
+interface ChatStreamEvent {
+  type: string;
+  text?: string;
+  body?: string;
+  phasesUpdated?: number;
+  invalidPlan?: boolean;
+  message?: string;
+  messageId?: string;
+  callId?: string;
+  name?: string;
+  toolName?: string;
+  serverName?: string;
+  args?: string;
+  ok?: boolean;
+  summary?: string;
+  approved?: boolean;
+  servers?: string;
+}
+
+function dispatch(event: ChatStreamEvent, handlers: ChatStreamHandlers) {
+  switch (event.type) {
+    case "delta":
+      if (event.text) handlers.onDelta?.(event.text);
+      break;
+    case "error":
+      handlers.onError?.(event.message ?? "unknown_error");
+      break;
+    case "done":
+      handlers.onDone?.({
+        body: event.body ?? "",
+        phasesUpdated: event.phasesUpdated ?? 0,
+        invalidPlan: Boolean(event.invalidPlan),
+        messageId: event.messageId,
+      });
+      break;
+    case "tool_call":
+    case "tool_approval_required": {
+      if (!event.callId) break;
+      const payload: ChatToolEvent = {
+        callId: event.callId,
+        name: event.name ?? "tool",
+        toolName: event.toolName,
+        serverName: event.serverName,
+        args: event.args,
+      };
+      if (event.type === "tool_call") {
+        handlers.onToolCall?.(payload);
+      } else {
+        handlers.onToolApprovalRequired?.(payload);
+      }
+      break;
+    }
+    case "tool_approval_resolved":
+      if (event.callId) {
+        handlers.onToolApprovalResolved?.({
+          callId: event.callId,
+          approved: Boolean(event.approved),
+        });
+      }
+      break;
+    case "tool_result":
+      if (event.callId) {
+        handlers.onToolResult?.({
+          callId: event.callId,
+          name: event.name ?? "tool",
+          ok: Boolean(event.ok),
+          summary: event.summary,
+        });
+      }
+      break;
+    case "tool_unavailable":
+      if (event.servers) handlers.onToolUnavailable?.(event.servers);
+      break;
   }
 }
 
 export type {
+  MCPServerConfig,
+  MCPToolInfo,
   Message,
   Phase,
   Project,
   ProjectDetail,
   ProjectSummary,
+  SkillConfig,
   Task,
 };

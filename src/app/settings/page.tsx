@@ -14,11 +14,13 @@ import { toast } from "sonner";
 
 import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MCPServersCard } from "@/components/settings/mcp-servers";
 import {
   AddProviderButton,
   ProviderDialog,
   type ProviderFormValue,
 } from "@/components/settings/provider-dialog";
+import { SkillsCard } from "@/components/settings/skills";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,7 +54,9 @@ import { useI18n } from "@/lib/i18n";
 import {
   CODEX_PROVIDER_TYPE,
   type AppSettings,
+  type MCPServerConfig,
   type ProviderSummary,
+  type SkillConfig,
 } from "@/lib/types";
 
 export default function SettingsPage() {
@@ -360,6 +364,26 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* MCP servers */}
+      {settings ? (
+        <MCPServersCard
+          servers={settings.mcpServers}
+          onChange={(mcpServers: MCPServerConfig[]) =>
+            setSettings({ ...settings, mcpServers })
+          }
+        />
+      ) : null}
+
+      {/* Skills */}
+      {settings ? (
+        <SkillsCard
+          skills={settings.skills}
+          onChange={(skills: SkillConfig[]) =>
+            setSettings({ ...settings, skills })
+          }
+        />
+      ) : null}
 
       {/* Appearance */}
       <Card>
