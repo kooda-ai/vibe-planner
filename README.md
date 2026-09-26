@@ -103,6 +103,16 @@ The desktop build keeps the whole server-side app intact: Electron spawns Next's
 `localhost:1455` Codex OAuth callback included — therefore behaves exactly as it does on
 the web.
 
+### Requirements
+
+The desktop build targets **Node.js 24 LTS**, both on the build machine and inside the
+packaged app: Electron embeds its own Node runtime (the `electron` devDependency), and
+that runtime executes the main process *and* the spawned Next.js server, so the esbuild
+`target` in `scripts/build-electron.mjs` (`node24`) matches the Electron major
+(`node -p "require('electron/package.json').version"`). CI builds on Node 24 as well
+(`actions/setup-node` in `.github/workflows/release.yml`), and `@types/node` tracks the
+same major.
+
 ### Running it
 
 ```bash
@@ -223,6 +233,6 @@ release wiring (packaged entry point, standalone handoff and workflow).
 
 ## Tech stack
 
-Next.js 15 (App Router) · TypeScript · Tailwind CSS · Shadcn/UI · Electron +
-electron-builder · Prisma (reference schema) · `@dnd-kit` · `next-themes` · Sonner · Zod ·
-Recharts.
+Next.js 15 (App Router) · TypeScript · Tailwind CSS · Shadcn/UI · Electron (+ embedded
+Node.js 24 LTS) + electron-builder · Prisma (reference schema) · `@dnd-kit` · `next-themes` ·
+Sonner · Zod · Recharts.

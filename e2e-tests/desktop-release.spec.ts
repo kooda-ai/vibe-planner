@@ -64,6 +64,31 @@ test("the release workflow bumps the patch version and publishes a release", () 
   expect(workflow).toMatch(/v\$\{\{ needs\.version\.outputs\.version \}\}/);
 });
 
+/**
+ * The desktop build targets Node 24 LTS: the CI runners build with it and the
+ * bundle is emitted for it. Electron embeds its own Node runtime (Electron 40+
+ * ships Node 24), which both the main process and the spawned Next.js server
+ * run on, so the esbuild target must match the Electron major.
+ */
+test("the desktop toolchain targets Node 24 LTS", () => {
+  const workflow = read(".github/workflows/release.yml");
+  // The version stamp step must not silently pick a different Node.
+  expect(workflow).toMatch(/node-version:\s*24/);
+  expect(workflow).not.toMatch(/node-version:\s*20/);
+
+  const buildScript = read("scripts/build-electron.mjs");
+  expect(buildScript).toContain('target: "node24"');
+
+  // Electron >= 40 is what makes the Node 24 runtime apply; electron 33 still
+  // embedded Node 20.18.
+  const pkg = JSON.parse(read("package.json")) as {
+    devDependencies?: Record<string, string>;
+  };
+  const electronRange = pkg.devDependencies?.electron ?? "";
+  const electronMajor = Number(electronRange.replace(/[^\d.]/g, "").split(".")[0]);
+  expect(electronMajor).toBeGreaterThanOrEqual(40);
+});
+
 test("the desktop update bridge is optional so the web app is unaffected", async ({
   page,
 }) => {

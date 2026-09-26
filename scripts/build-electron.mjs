@@ -18,7 +18,9 @@ const outdir = path.join(root, "dist-electron");
 const shared = {
   bundle: true,
   platform: "node",
-  target: "node20",
+  // Matches the Node version Electron embeds (Electron 43 ships Node 24), which
+  // is also the runtime that executes the bundled Next.js server.
+  target: "node24",
   format: "cjs",
   external: ["electron"],
   sourcemap: false,
