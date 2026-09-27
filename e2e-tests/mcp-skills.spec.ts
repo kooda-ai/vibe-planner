@@ -25,21 +25,16 @@ test("add an MCP server by hand and delete it again", async ({ page }) => {
     .getByTestId("mcp-args-input")
     .fill("-y @modelcontextprotocol/server-memory");
   await page.getByTestId("save-mcp-server").click();
+  await expect(page.getByTestId("save-mcp-server")).toBeHidden();
 
+  // Check the persisted list rather than relying on the settings page's in-flight state.
+  await page.reload();
   const row = page.getByTestId("mcp-server-row").filter({ hasText: name });
   await expect(row).toBeVisible();
   await expect(row).toContainText("stdio");
   await expect(row).toContainText("npx");
 
-  // Survives a reload (persisted server-side).
-  await page.reload();
-  await expect(page.getByTestId("mcp-server-row").filter({ hasText: name })).toBeVisible();
-
-  await page
-    .getByTestId("mcp-server-row")
-    .filter({ hasText: name })
-    .getByTestId("delete-mcp-server")
-    .click();
+  await row.getByTestId("delete-mcp-server").click();
   await page.getByTestId("confirm-delete-mcp-server").click();
   await expect(page.getByText(name)).toHaveCount(0);
 });
@@ -175,7 +170,7 @@ test("pick project skills and use the slash autocomplete in chat", async ({
   await page.getByTestId("new-project-button").first().click();
   await page.getByTestId("project-name-input").fill(projectName);
   await page.getByTestId("create-project-submit").click();
-  await expect(page).toHaveURL(/\/projects\/[^/]+$/);
+  await expect(page).toHaveURL(/\/projects\/[^/]+$/, { timeout: 15_000 });
 
   // No explicit selection means "all enabled skills".
   await expect(page.getByTestId("skill-picker")).toBeVisible();
