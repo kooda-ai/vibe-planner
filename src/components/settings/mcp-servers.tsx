@@ -234,8 +234,10 @@ export function MCPServersCard({
       );
       onChange(saved.servers);
       toast.success(t.settings.mcp.saved);
+      return true;
     } catch {
       toast.error(t.settings.mcp.saveFailed);
+      return false;
     }
   }
 
@@ -502,7 +504,7 @@ function ServerDialog({
 }: {
   server?: MCPServerConfig;
   trigger: React.ReactNode;
-  onSubmit: (draft: ServerDraft) => Promise<void>;
+  onSubmit: (draft: ServerDraft) => Promise<boolean>;
 }) {
   const { t, tr } = useI18n();
   const [open, setOpen] = useState(false);
@@ -546,8 +548,8 @@ function ServerDialog({
     }
     setSaving(true);
     try {
-      await onSubmit({ ...draft, name: draft.name.trim() });
-      setOpen(false);
+      const saved = await onSubmit({ ...draft, name: draft.name.trim() });
+      if (saved) setOpen(false);
     } finally {
       setSaving(false);
     }
@@ -711,7 +713,7 @@ function ServerDialog({
 function AddServerButton({
   onSubmit,
 }: {
-  onSubmit: (draft: ServerDraft) => Promise<void>;
+  onSubmit: (draft: ServerDraft) => Promise<boolean>;
 }) {
   const { t } = useI18n();
   return (

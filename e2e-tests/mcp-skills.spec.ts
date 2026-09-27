@@ -194,3 +194,34 @@ test("pick project skills and use the slash autocomplete in chat", async ({
   // The applied skill shows up as a chip under the input.
   await expect(page.getByTestId("skill-chips")).toContainText(`/${slug}`);
 });
+
+test("failed MCP and skill saves keep their drafts open", async ({ page }) => {
+  await page.route("**/api/mcp/servers", (route) =>
+    route.request().method() === "PUT"
+      ? route.fulfill({ status: 500, body: JSON.stringify({ error: "save_failed" }) })
+      : route.continue(),
+  );
+  await page.route("**/api/skills", (route) =>
+    route.request().method() === "PUT"
+      ? route.fulfill({ status: 500, body: JSON.stringify({ error: "save_failed" }) })
+      : route.continue(),
+  );
+
+  await page.goto("/settings");
+  await page.getByTestId("add-mcp-server").click();
+  await page.getByTestId("mcp-name-input").fill("Unsaved MCP");
+  await page.getByTestId("mcp-command-input").fill("node");
+  await page.getByTestId("save-mcp-server").click();
+  await expect(page.getByTestId("save-mcp-server")).toBeEnabled();
+  await expect(page.getByTestId("mcp-name-input")).toHaveValue("Unsaved MCP");
+  await expect(page.getByTestId("mcp-server-row").filter({ hasText: "Unsaved MCP" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByTestId("add-skill").click();
+  await page.getByTestId("skill-name-input").fill("Unsaved Skill");
+  await page.getByTestId("skill-body-input").fill("Keep this draft available.");
+  await page.getByTestId("save-skill").click();
+  await expect(page.getByTestId("save-skill")).toBeEnabled();
+  await expect(page.getByTestId("skill-name-input")).toHaveValue("Unsaved Skill");
+  await expect(page.getByTestId("skill-row").filter({ hasText: "Unsaved Skill" })).toHaveCount(0);
+});

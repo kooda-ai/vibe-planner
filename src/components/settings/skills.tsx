@@ -70,8 +70,10 @@ export function SkillsCard({
       const saved = await saveSkills(next);
       onChange(saved.skills);
       toast.success(t.settings.skillsCard.saved);
+      return true;
     } catch {
       toast.error(t.settings.skillsCard.saveFailed);
+      return false;
     }
   }
 
@@ -101,7 +103,7 @@ export function SkillsCard({
         enabled: draft.enabled,
       });
     }
-    await persist(next);
+    return persist(next);
   }
 
   async function remove(skill: SkillConfig) {
@@ -252,7 +254,7 @@ function SkillDialog({
 }: {
   skill?: SkillConfig;
   trigger: React.ReactNode;
-  onSubmit: (draft: SkillDraft) => Promise<void>;
+  onSubmit: (draft: SkillDraft) => Promise<boolean>;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -290,14 +292,14 @@ function SkillDialog({
     }
     setSaving(true);
     try {
-      await onSubmit({
+      const saved = await onSubmit({
         ...draft,
         name: draft.name.trim(),
         description: draft.description.trim(),
         body: draft.body.trim(),
         category: draft.category.trim(),
       });
-      setOpen(false);
+      if (saved) setOpen(false);
     } finally {
       setSaving(false);
     }
@@ -419,7 +421,7 @@ function SkillDialog({
 function AddSkillButton({
   onSubmit,
 }: {
-  onSubmit: (draft: SkillDraft) => Promise<void>;
+  onSubmit: (draft: SkillDraft) => Promise<boolean>;
 }) {
   const { t } = useI18n();
   return (
