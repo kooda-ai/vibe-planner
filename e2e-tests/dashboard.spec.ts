@@ -19,7 +19,7 @@ test("create a project from the dashboard and see it in the grid", async ({
   await expect(page).toHaveURL(/\/projects\/[^/]+$/);
   await expect(page.getByTestId("project-title")).toHaveText(name);
 
-  // The project shows up on the dashboard grid.
+  // The project shows up on the dashboard grid, regardless of other projects' order.
   await page.getByTestId("nav-dashboard").click();
-  await expect(page.getByTestId("project-card-name").first()).toHaveText(name);
+  await expect(page.getByTestId("project-card-name").filter({ hasText: name })).toHaveText(name);
 });
