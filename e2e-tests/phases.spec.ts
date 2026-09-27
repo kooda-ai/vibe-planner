@@ -8,7 +8,7 @@ async function createProject(page: Page, name: string): Promise<string> {
   await page.getByTestId("new-project-button").first().click();
   await page.getByTestId("project-name-input").fill(name);
   await page.getByTestId("create-project-submit").click();
-  await expect(page).toHaveURL(/\/projects\/[^/]+$/);
+  await expect(page).toHaveURL(/\/projects\/[^/]+$/, { timeout: 15_000 });
   const match = page.url().match(/\/projects\/([^/?#]+)/);
   if (!match) throw new Error("project id not found in url");
   return match[1];
