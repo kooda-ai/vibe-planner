@@ -190,6 +190,12 @@ bundle, which is read-only on Windows and macOS.
 - **Layout** — `dist-electron/` (esbuild output) and `dist/` (electron-builder output) are
   git-ignored; `electron-builder.yml` ships `.next/standalone` as `resources/app`, i.e.
   **outside** the asar archive so `node server.js` can run from a real folder.
+- **Packaged `node_modules`** — the standalone folder's `node_modules` is declared as its
+  **own** `extraResources` entry. electron-builder's copy filter drops a root-level
+  `node_modules` directory (and everything below it), so bundling it with `.next/standalone`
+  ships `server.js` without its dependencies and the app fails at launch with
+  *"Cannot find module 'next'"*. `e2e-tests/desktop-release.spec.ts` covers this by running
+  electron-builder's real copy code over a pnpm-shaped bundle.
 
 ## Releases & auto-update
 

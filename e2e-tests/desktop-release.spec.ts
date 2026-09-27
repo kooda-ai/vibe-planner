@@ -1,4 +1,14 @@
-import { readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
@@ -44,12 +54,136 @@ test("the packaging config ships the server outside the asar and publishes to Gi
   // Asar-external resources keep `node server.js` working.
   expect(config).toContain("from: .next/standalone");
   expect(config).toContain("to: app");
+  // `node_modules` must be its own entry: the copy filter drops a root-level
+  // `node_modules` directory, so bundling it with the standalone folder ships
+  // `server.js` without the packages it requires.
+  expect(config).toContain("from: .next/standalone/node_modules");
+  expect(config).toContain("to: app/node_modules");
   // One installer per platform.
   expect(config).toContain("target: nsis");
   expect(config).toContain("target: dmg");
   expect(config).toContain("target: AppImage");
   // electron-updater reads the latest*.yml metadata from the GitHub release.
   expect(config).toContain("provider: github");
+});
+
+/**
+ * `server.js` starts with `require('next')`, so the packaged `resources/app`
+ * must contain a `node_modules` tree Node can resolve through. The previous
+ * config copied only `.next/standalone`, and builder-util's filter silently
+ * drops a root-level `node_modules` — producing "Cannot find module 'next'".
+ *
+ * This drives electron-builder's real copy code with the `extraResources`
+ * entries declared in electron-builder.yml against a pnpm-shaped bundle, so a
+ * config regression that stops shipping `node_modules` fails here.
+ */
+test("the packaged app ships the standalone node_modules tree", async () => {
+  const require = createRequire(path.join(root, "package.json"));
+  // `app-builder-lib` is not a direct dependency; reach it via electron-builder.
+  const resolved = require.resolve("app-builder-lib/out/fileMatcher", {
+    paths: [path.dirname(require.resolve("electron-builder/package.json"))],
+  });
+  const { FileMatcher, copyFiles } = require(resolved) as {
+    FileMatcher: new (
+      from: string,
+      to: string,
+      macroExpander: (value: string) => string,
+      patterns: string[],
+    ) => unknown;
+    copyFiles: (matchers: unknown[], transformer: unknown) => Promise<void>;
+  };
+
+  // Read the shippable config itself, so dropping the node_modules entry fails
+  // here. `from` resolves against the project dir, `to` against resources.
+  // js-yaml is electron-builder's own dependency, so resolve it from there
+  // rather than relying on the project's (strict pnpm) node_modules.
+  const yaml = require(require.resolve("js-yaml", { paths: [path.dirname(resolved)] })) as {
+    load: (input: string) => {
+      extraResources?: (string | { from: string; to: string })[];
+    };
+  };
+  const declared = yaml.load(read("electron-builder.yml")).extraResources ?? [];
+
+  // Build the synthetic standalone bundle the config points at, with pnpm's
+  // real layout: top-level `node_modules/<pkg>` links into `.pnpm/`, plus
+  // nested dependency links inside a package's store folder.
+  const tmp = mkdtempSync(path.join(os.tmpdir(), "dyad-standalone-"));
+  const standalone = path.join(tmp, ".next", "standalone");
+  const resourcesDir = path.join(tmp, "resources");
+  const entries = declared.map((entry) => {
+    const [from, to] =
+      typeof entry === "string" ? [entry, "."] : [entry.from, entry.to];
+    return { from: path.join(tmp, from), to: path.join(resourcesDir, to) };
+  });
+  // Without this entry the bundle ships no dependencies at all.
+  expect(entries.some((entry) => entry.from.endsWith("node_modules"))).toBe(true);
+  const write = (relative: string, content: string) => {
+    const file = path.join(standalone, relative);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, content);
+  };
+  const link = (relative: string, target: string) => {
+    const at = path.join(standalone, relative);
+    mkdirSync(path.dirname(at), { recursive: true });
+    symlinkSync(target, at, "dir");
+  };
+
+  write("server.js", "require('next')\n");
+  write(".next/static/chunk.js", "console.log(1)\n");
+  write("public/logo.svg", "<svg/>");
+  write(
+    "node_modules/.pnpm/next@15.5.26/node_modules/next/package.json",
+    '{"name":"next","main":"dist/server.js"}',
+  );
+  write("node_modules/.pnpm/next@15.5.26/node_modules/next/dist/server.js", "//");
+  write(
+    "node_modules/.pnpm/react@19.3.0/node_modules/react/package.json",
+    '{"name":"react"}',
+  );
+  // pnpm links a package's dependencies from its own store folder.
+  link(
+    "node_modules/.pnpm/next@15.5.26/node_modules/react",
+    "../../react@19.3.0/node_modules/react",
+  );
+  link("node_modules/next", ".pnpm/next@15.5.26/node_modules/next");
+  link("node_modules/react", ".pnpm/react@19.3.0/node_modules/react");
+
+  try {
+    await copyFiles(
+      entries.map(
+        (entry) => new FileMatcher(entry.from, entry.to, (value) => value, []),
+      ),
+      null,
+    );
+
+    const app = path.join(resourcesDir, "app");
+    // The web app itself still arrives.
+    expect(existsSync(path.join(app, "server.js"))).toBe(true);
+    expect(existsSync(path.join(app, ".next", "static", "chunk.js"))).toBe(true);
+    // The fix: the dependencies `require('next')` resolves through are present.
+    expect(existsSync(path.join(app, "node_modules", "next", "package.json"))).toBe(
+      true,
+    );
+    expect(
+      existsSync(path.join(app, "node_modules", "next", "dist", "server.js")),
+    ).toBe(true);
+    // Nested pnpm links survive and point into the shipped store.
+    expect(
+      existsSync(
+        path.join(
+          app,
+          "node_modules",
+          ".pnpm",
+          "next@15.5.26",
+          "node_modules",
+          "react",
+          "package.json",
+        ),
+      ),
+    ).toBe(true);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test("the release workflow bumps the patch version and publishes a release", () => {
