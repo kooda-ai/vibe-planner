@@ -314,3 +314,6 @@ the desktop release wiring (packaged entry point, standalone handoff and workflo
 Next.js 15 (App Router) · TypeScript · Tailwind CSS · Shadcn/UI · Electron (+ embedded
 Node.js 24 LTS) + electron-builder · Prisma (reference schema) · `@dnd-kit` ·
 `@modelcontextprotocol/sdk` · `next-themes` · Sonner · Zod · Recharts.
+
+
+![Views](https://visitor-badge.laobi.icu/badge?page_id=kooda-ai.vibe-planner&left_text=Views&format=true&logo=github)
