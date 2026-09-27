@@ -7,6 +7,7 @@ test("add an AI provider, pick a default model and delete it again", async ({
 
   await page.goto("/settings");
   await expect(page.getByTestId("settings-title")).toBeVisible();
+  await expect(page.getByTestId("add-provider-button")).toBeEnabled();
 
   await page.getByTestId("add-provider-button").click();
   await page.getByTestId("provider-name-input").fill(providerName);

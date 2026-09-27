@@ -184,7 +184,7 @@ export default function SettingsPage() {
             <CardTitle className="text-base">{t.settings.providers}</CardTitle>
             <CardDescription>{t.settings.providersDescription}</CardDescription>
           </div>
-          <AddProviderButton onSubmit={upsertProvider} />
+          <AddProviderButton onSubmit={upsertProvider} disabled={!settings} />
         </CardHeader>
         <CardContent className="space-y-3">
           {loading ? (

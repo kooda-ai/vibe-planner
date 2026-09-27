@@ -305,15 +305,17 @@ export function ProviderDialog({
 
 export function AddProviderButton({
   onSubmit,
+  disabled = false,
 }: {
   onSubmit: (value: ProviderFormValue) => Promise<void>;
+  disabled?: boolean;
 }) {
   const { t } = useI18n();
   return (
     <ProviderDialog
       onSubmit={onSubmit}
       trigger={
-        <Button data-testid="add-provider-button">
+        <Button disabled={disabled} data-testid="add-provider-button">
           <Plus className="mr-2 h-4 w-4" />
           {t.settings.addProvider}
         </Button>
