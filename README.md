@@ -5,6 +5,14 @@ lets you manage each phase with a task list + notes + status, and copies any pha
 **vibe coder** (e.g. Dyad) with one click. It runs both in the browser and as a packaged
 **desktop app** (Windows / macOS / Linux).
 
+<img width="1280" height="720" alt="Image" src="https://github.com/user-attachments/assets/21eacd1f-348e-4fe0-820e-fc6b72f6eb62" />
+
+<img width="3500" height="2042" alt="Image" src="https://github.com/user-attachments/assets/0e6512f4-4f4b-427c-b97c-5b62a95014bd" />
+
+<img width="3500" height="2042" alt="Image" src="https://github.com/user-attachments/assets/4eb1b358-0424-4a9b-a19e-b9967460495a" />
+
+<img width="3500" height="2042" alt="Image" src="https://github.com/user-attachments/assets/06880380-396b-4d7d-b811-5634f2ef0933" />
+
 ## Features
 
 - **Dashboard** — project cards, phase/task progress and the "New Project" flow.
