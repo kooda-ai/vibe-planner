@@ -2,16 +2,10 @@
 
 A single-user app that splits a project idea into **phases** by chatting with an AI,
 lets you manage each phase with a task list + notes + status, and copies any phase into your
-**vibe coder** (e.g. Dyad) with one click. It runs both in the browser and as a packaged
+**vibe coder** (e.g. Cursor, Windsurf, Claude or OpenCode) with one click. It runs both in the browser and as a packaged
 **desktop app** (Windows / macOS / Linux).
 
 <img width="1280" height="720" alt="Image" src="https://github.com/user-attachments/assets/21eacd1f-348e-4fe0-820e-fc6b72f6eb62" />
-
-<img width="3500" height="2042" alt="Image" src="https://github.com/user-attachments/assets/0e6512f4-4f4b-427c-b97c-5b62a95014bd" />
-
-<img width="3500" height="2042" alt="Image" src="https://github.com/user-attachments/assets/4eb1b358-0424-4a9b-a19e-b9967460495a" />
-
-<img width="3500" height="2042" alt="Image" src="https://github.com/user-attachments/assets/06880380-396b-4d7d-b811-5634f2ef0933" />
 
 ## Features
 
@@ -40,6 +34,13 @@ lets you manage each phase with a task list + notes + status, and copies any pha
   language (EN/TR) and export/import.
 - **Theme & language** — light/dark/system via `next-themes`, plus a lightweight EN/TR
   dictionary (English is the default).
+- Bring Your Own ChatGPT: Sign in directly with your ChatGPT account via Codex auth flow — no API keys, prepaid credits, or billing dashboards required. Also supports standard API keys and local LLMs (Ollama).
+
+<img width="3500" height="2042" alt="Image" src="https://github.com/user-attachments/assets/0e6512f4-4f4b-427c-b97c-5b62a95014bd" />
+
+<img width="3500" height="2042" alt="Image" src="https://github.com/user-attachments/assets/4eb1b358-0424-4a9b-a19e-b9967460495a" />
+
+<img width="3500" height="2042" alt="Image" src="https://github.com/user-attachments/assets/06880380-396b-4d7d-b811-5634f2ef0933" />
 
 ## Getting started
 
