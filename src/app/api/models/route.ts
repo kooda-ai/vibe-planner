@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getProvider } from "@/lib/ai";
 import { ensureFreshCodexAuth } from "@/lib/ai/codex-token";
+import { isValidApiCredential } from "@/lib/ai/types";
 import { getSettingsRecord } from "@/lib/db";
 import {
   SETTINGS_KEYS,
@@ -66,6 +67,9 @@ export async function POST(request: Request) {
     }
   } else if (!apiKey) {
     return NextResponse.json({ error: "credentials_required" }, { status: 400 });
+  }
+  if (!isValidApiCredential(apiKey)) {
+    return NextResponse.json({ error: "invalid_api_key" }, { status: 400 });
   }
 
   try {

@@ -146,6 +146,8 @@ const tr: Dictionary = {
     phasesUpdated: "{count} phase güncellendi ✓",
     noPlan: "AI geçerli bir plan üretemedi, yeniden deneyin.",
     failed: "AI yanıtı alınamadı.",
+    connectionFailed: "AI sağlayıcısına ulaşılamadı. İnternet bağlantını ve sağlayıcı ayarlarını kontrol et.",
+    invalidApiKey: "API anahtarında desteklenmeyen karakterler var. Ayarlar'da terminal çıktısı yerine yalnızca anahtarı gir.",
     noProvider:
       "Önce Ayarlar'dan bir AI sağlayıcı ekleyip API anahtarı girmelisin.",
     retry: "Yeniden dene",
@@ -225,6 +227,8 @@ const tr: Dictionary = {
     fetchModels: "Modelleri çek",
     fetched: "{count} model bulundu",
     fetchFailed: "Modeller alınamadı.",
+    connectionFailed: "AI sağlayıcısına ulaşılamadı. İnternet bağlantını ve sağlayıcı ayarlarını kontrol et.",
+    invalidApiKey: "API anahtarında desteklenmeyen karakterler var. Terminal çıktısı yerine yalnızca anahtarı yapıştır.",
     editProvider: "Sağlayıcıyı düzenle",
     deleteProvider: "Sağlayıcıyı sil",
     deleteTitle: "Sağlayıcı silinsin mi?",

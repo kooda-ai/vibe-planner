@@ -38,6 +38,10 @@ test("the packaged app boots Next's standalone server from user data", () => {
   expect(main).toContain("PLANNER_DATA_FILE");
   // Auto-update is deliberately skipped on macOS (unsigned builds).
   expect(main).toContain('process.platform === "darwin"');
+  // Native editing actions are available in the packaged window's right-click menu.
+  expect(main).toContain('webContents.on("context-menu"');
+  expect(main).toContain('role: "copy"');
+  expect(main).toContain('role: "paste"');
 
   const pkg = JSON.parse(read("package.json")) as {
     main?: string;

@@ -251,6 +251,12 @@ export function ChatPanel({
             } else if (code === "codex_reconnect_required") {
               setError(t.chat.codexReconnect);
               setNeedsSettings(true);
+            } else if (code === "invalid_api_key" || code.includes("ByteString")) {
+              setError(t.chat.invalidApiKey);
+              setNeedsSettings(true);
+            } else if (code === "fetch failed" || code === "Failed to fetch") {
+              setError(t.chat.connectionFailed);
+              setNeedsSettings(false);
             } else if (code === "tool_permission_denied") {
               setError(t.chat.tools.denied);
               setNeedsSettings(false);
@@ -266,7 +272,9 @@ export function ChatPanel({
       setStreamingText(null);
       if (!controller.signal.aborted) {
         setError(
-          streamError instanceof Error ? streamError.message : t.chat.failed,
+          streamError instanceof TypeError && streamError.message === "Failed to fetch"
+            ? t.chat.connectionFailed
+            : streamError instanceof Error ? streamError.message : t.chat.failed,
         );
       }
     } finally {

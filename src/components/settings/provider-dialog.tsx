@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { ConnectChatGpt } from "@/components/settings/connect-chatgpt";
 import { fetchModels } from "@/lib/api";
+import { isValidApiCredential } from "@/lib/ai/types";
 import { useI18n } from "@/lib/i18n";
 import {
   CODEX_MODELS,
@@ -102,6 +103,10 @@ export function ProviderDialog({
       toast.error(t.settings.keyRequired);
       return;
     }
+    if (!isCodex && apiKey.trim() && !isValidApiCredential(apiKey.trim())) {
+      toast.error(t.settings.invalidApiKey);
+      return;
+    }
     setSaving(true);
     try {
       await onSubmit({
@@ -151,6 +156,10 @@ export function ProviderDialog({
       const code = error instanceof Error ? error.message : "";
       if (isCodex && (code === "codex_reconnect_required" || code === "codex_not_connected")) {
         toast.error(t.settings.codexNoToken);
+      } else if (code === "invalid_api_key" || code.includes("ByteString")) {
+        toast.error(t.settings.invalidApiKey);
+      } else if (code === "fetch failed" || code === "Failed to fetch") {
+        toast.error(t.settings.connectionFailed);
       } else if (code.startsWith("Provider error")) {
         toast.error(code);
       } else {

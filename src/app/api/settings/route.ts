@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
+import { isValidApiCredential } from "@/lib/ai/types";
 import { getSettingsRecord, saveSettings } from "@/lib/db";
 import {
   SETTINGS_KEYS,
@@ -43,6 +44,9 @@ export async function PUT(request: Request) {
         typeof candidate.apiKey === "string" && candidate.apiKey.trim()
           ? candidate.apiKey.trim()
           : (previous?.apiKey ?? "");
+      if (candidate.type !== CODEX_PROVIDER_TYPE && apiKey && !isValidApiCredential(apiKey)) {
+        return NextResponse.json({ error: "invalid_api_key" }, { status: 400 });
+      }
 
       next.push({
         id,

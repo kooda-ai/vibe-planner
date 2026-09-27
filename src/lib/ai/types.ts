@@ -34,6 +34,11 @@ export interface ProviderCredentials {
   accountId?: string;
 }
 
+/** API credentials are sent in HTTP headers, which cannot contain Unicode or whitespace. */
+export function isValidApiCredential(value: string): boolean {
+  return /^[\x21-\x7e]+$/.test(value);
+}
+
 export interface ChatStreamOptions extends ProviderCredentials {
   model: string;
   messages: ChatMessage[];

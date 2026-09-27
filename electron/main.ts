@@ -232,6 +232,25 @@ function createWindow(): BrowserWindow {
     openExternally(url);
   });
 
+  window.webContents.on("context-menu", (_event, params) => {
+    const editable = params.isEditable;
+    const hasSelection = Boolean(params.selectionText);
+    const items: MenuItemConstructorOptions[] = [
+      ...(editable ? [
+        { role: "cut" as const, enabled: params.editFlags.canCut },
+      ] : []),
+      { role: "copy", enabled: hasSelection && params.editFlags.canCopy },
+      ...(editable ? [
+        { role: "paste" as const, enabled: params.editFlags.canPaste },
+        { type: "separator" as const },
+        { role: "selectAll" as const },
+      ] : []),
+    ];
+    if (editable || hasSelection) {
+      Menu.buildFromTemplate(items).popup({ window });
+    }
+  });
+
   window.on("closed", () => {
     if (mainWindow === window) mainWindow = null;
   });

@@ -4,7 +4,7 @@ import { getProvider } from "@/lib/ai";
 import { runAgentTurn } from "@/lib/ai/agent";
 import { ensureFreshCodexAuth } from "@/lib/ai/codex-token";
 import { buildChatMessages } from "@/lib/ai/prompt";
-import { ProviderError, type ChatMessage } from "@/lib/ai/types";
+import { isValidApiCredential, ProviderError, type ChatMessage } from "@/lib/ai/types";
 import {
   addMessage,
   applyPlan,
@@ -120,6 +120,9 @@ export async function POST(request: Request, { params }: Params) {
     }
   } else if (!credential) {
     return NextResponse.json({ error: "missing_api_key" }, { status: 400 });
+  }
+  if (!isValidApiCredential(credential)) {
+    return NextResponse.json({ error: "invalid_api_key" }, { status: 400 });
   }
 
   const servers = parseMCPServers(record[SETTINGS_KEYS.mcpServers]);
@@ -244,11 +247,6 @@ export async function POST(request: Request, { params }: Params) {
         }
         const message =
           error instanceof Error ? error.message : "provider_error";
-        await addMessage({
-          projectId: id,
-          role: "assistant",
-          content: `⚠️ ${message}`,
-        });
         send({ type: "error", message });
         controller.close();
         return;

@@ -149,6 +149,8 @@ const en = {
     phasesUpdated: "{count} phases updated ✓",
     noPlan: "The AI could not produce a valid plan, please try again.",
     failed: "Could not get an AI response.",
+    connectionFailed: "Could not reach the AI provider. Check your internet connection and provider settings.",
+    invalidApiKey: "The API key contains unsupported characters. Replace it in Settings with the key only (no pasted terminal output).",
     noProvider:
       "Add an AI provider and API key in Settings before chatting.",
     retry: "Retry",
@@ -227,6 +229,8 @@ const en = {
     fetchModels: "Fetch models",
     fetched: "{count} models found",
     fetchFailed: "Could not fetch models.",
+    connectionFailed: "Could not reach the AI provider. Check your internet connection and provider settings.",
+    invalidApiKey: "The API key contains unsupported characters. Paste only the key, without terminal output.",
     editProvider: "Edit provider",
     deleteProvider: "Delete provider",
     deleteTitle: "Delete provider?",
