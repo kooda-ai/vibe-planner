@@ -15,8 +15,8 @@ import {
   type ProviderEvent,
 } from "./types";
 
-/** Maximum provider round-trips in one turn, so a tool loop cannot run away. */
-export const MAX_AGENT_TURNS = 8;
+/** Maximum provider round-trips in one turn, keeping tool loops bounded. */
+export const MAX_AGENT_TURNS = 20;
 
 /**
  * Events the agent produces. `delta` carries user-visible prose (already

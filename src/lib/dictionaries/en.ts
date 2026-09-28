@@ -145,7 +145,11 @@ const en = {
     emptyDescription:
       "Describe your idea in a few sentences; the AI will write a plan and it will land in the panel on the right as phases.",
     emptyHint: "Example: \"Draft a 6-phase plan for an e-commerce site.\"",
-    thinking: "AI is typing…",
+    thinking: "Thinking…",
+    questionNext: "Next question",
+    questionSubmit: "Submit answer",
+    questionStep: "Question {current} of {total}",
+    showProgressDetails: "Show planning details",
     phasesUpdated: "{count} phases updated ✓",
     noPlan: "The AI could not produce a valid plan, please try again.",
     failed: "Could not get an AI response.",

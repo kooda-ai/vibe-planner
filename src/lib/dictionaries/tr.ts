@@ -142,7 +142,11 @@ const tr: Dictionary = {
     emptyDescription:
       "Fikrini birkaç cümleyle anlat; AI bir plan yazsın ve sağdaki panele phase'ler olarak düşsün.",
     emptyHint: "Örnek: \"E-ticaret sitesi için 6 phase'lik bir plan çıkar.\"",
-    thinking: "AI yazıyor…",
+    thinking: "Düşünüyor…",
+    questionNext: "Sonraki soru",
+    questionSubmit: "Yanıtı gönder",
+    questionStep: "Soru {current} / {total}",
+    showProgressDetails: "Planlama ayrıntılarını göster",
     phasesUpdated: "{count} phase güncellendi ✓",
     noPlan: "AI geçerli bir plan üretemedi, yeniden deneyin.",
     failed: "AI yanıtı alınamadı.",
