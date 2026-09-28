@@ -9,6 +9,18 @@ test("add an AI provider, pick a default model and delete it again", async ({
   await expect(page.getByTestId("settings-title")).toBeVisible();
   await expect(page.getByTestId("add-provider-button")).toBeEnabled();
 
+  const turnLimit = page.getByTestId("agent-turn-limit-select");
+  await expect(turnLimit).toBeVisible();
+  const invalidLimit = await page.request.put("/api/settings", {
+    data: { agentTurnLimit: 21 },
+  });
+  expect(invalidLimit.status()).toBe(400);
+  await turnLimit.click();
+  await page.getByRole("option", { name: "100 turns" }).click();
+  await expect(turnLimit).toContainText("100 turns");
+  await page.reload();
+  await expect(page.getByTestId("agent-turn-limit-select")).toContainText("100 turns");
+
   await page.getByTestId("add-provider-button").click();
   await page.getByTestId("provider-name-input").fill(providerName);
   await page.getByTestId("provider-api-key-input").fill("sk-test-key");

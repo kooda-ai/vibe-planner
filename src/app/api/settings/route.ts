@@ -10,7 +10,11 @@ import {
   readAppSettings,
   writeProviders,
 } from "@/lib/settings";
-import { CODEX_PROVIDER_TYPE, type StoredProvider } from "@/lib/types";
+import {
+  CODEX_PROVIDER_TYPE,
+  isAgentTurnLimit,
+  type StoredProvider,
+} from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +27,12 @@ export async function PUT(request: Request) {
     providers?: unknown;
     defaultProviderId?: unknown;
     defaultModel?: unknown;
+    agentTurnLimit?: unknown;
   };
+
+  if (body.agentTurnLimit !== undefined && !isAgentTurnLimit(body.agentTurnLimit)) {
+    return NextResponse.json({ error: "invalid_agent_turn_limit" }, { status: 400 });
+  }
 
   const record = await getSettingsRecord();
   let providers = parseProviders(record[SETTINGS_KEYS.providers]);
@@ -91,6 +100,10 @@ export async function PUT(request: Request) {
   if (body.defaultModel !== undefined) {
     patch[SETTINGS_KEYS.defaultModel] =
       typeof body.defaultModel === "string" ? body.defaultModel : "";
+  }
+
+  if (body.agentTurnLimit !== undefined) {
+    patch[SETTINGS_KEYS.agentTurnLimit] = String(body.agentTurnLimit);
   }
 
   if (Object.keys(patch).length) await saveSettings(patch);

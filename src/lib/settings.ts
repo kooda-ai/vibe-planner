@@ -1,6 +1,8 @@
 import { getSettingsRecord, saveSettings } from "./db";
 import { uniqueSlug } from "./skills";
 import {
+  AGENT_TURN_LIMIT_OPTIONS,
+  DEFAULT_AGENT_TURN_LIMIT,
   CODEX_MODELS,
   CODEX_PROVIDER_TYPE,
   MCP_TRANSPORT_TYPES,
@@ -18,6 +20,7 @@ export const SETTINGS_KEYS = {
   providers: "providers",
   defaultProviderId: "defaultProviderId",
   defaultModel: "defaultModel",
+  agentTurnLimit: "agentTurnLimit",
   mcpServers: "mcpServers",
   skills: "skills",
   projectSkills: "projectSkills",
@@ -124,6 +127,11 @@ export function toAppSettings(
     })),
     defaultProviderId: exists ? defaultProviderId : (providers[0]?.id ?? null),
     defaultModel: record[SETTINGS_KEYS.defaultModel] ?? null,
+    agentTurnLimit: AGENT_TURN_LIMIT_OPTIONS.includes(
+      Number(record[SETTINGS_KEYS.agentTurnLimit]) as (typeof AGENT_TURN_LIMIT_OPTIONS)[number],
+    )
+      ? (Number(record[SETTINGS_KEYS.agentTurnLimit]) as (typeof AGENT_TURN_LIMIT_OPTIONS)[number])
+      : DEFAULT_AGENT_TURN_LIMIT,
     // MCP `env`/`headers` may hold secrets (tokens), so they are stripped for
     // the client just like provider API keys are.
     mcpServers: parseMCPServers(record[SETTINGS_KEYS.mcpServers]).map((server) =>

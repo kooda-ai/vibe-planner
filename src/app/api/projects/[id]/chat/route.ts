@@ -26,6 +26,10 @@ import {
   SETTINGS_KEYS,
 } from "@/lib/settings";
 import { resolveActiveSkills } from "@/lib/skills";
+import {
+  DEFAULT_AGENT_TURN_LIMIT,
+  isAgentTurnLimit,
+} from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -98,6 +102,10 @@ export async function POST(request: Request, { params }: Params) {
   const locale = body.locale === "en" ? "en" : "tr";
 
   const record = await getSettingsRecord();
+  const storedTurnLimit = Number(record[SETTINGS_KEYS.agentTurnLimit]);
+  const agentTurnLimit = isAgentTurnLimit(storedTurnLimit)
+    ? storedTurnLimit
+    : DEFAULT_AGENT_TURN_LIMIT;
   const providers = await readProviders();
   const choice = pickProvider(
     providers,
@@ -202,6 +210,7 @@ export async function POST(request: Request, { params }: Params) {
           tools,
           servers,
           autoApproved,
+          turnLimit: agentTurnLimit,
           signal: request.signal,
         })) {
           switch (event.type) {

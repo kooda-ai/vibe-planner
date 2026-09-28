@@ -52,6 +52,7 @@ import {
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import {
+  AGENT_TURN_LIMIT_OPTIONS,
   CODEX_PROVIDER_TYPE,
   type AppSettings,
   type MCPServerConfig,
@@ -362,6 +363,36 @@ export default function SettingsPage() {
               {t.settings.noDefaultModel}
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t.settings.agentTurnLimit}</CardTitle>
+          <CardDescription>{t.settings.agentTurnLimitDescription}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid max-w-sm gap-2">
+            <Label htmlFor="agent-turn-limit">{t.settings.agentTurnLimit}</Label>
+            <Select
+              value={String(settings?.agentTurnLimit ?? 50)}
+              onValueChange={(value) =>
+                void persist({ agentTurnLimit: Number(value) })
+              }
+              disabled={!settings}
+            >
+              <SelectTrigger id="agent-turn-limit" data-testid="agent-turn-limit-select">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {AGENT_TURN_LIMIT_OPTIONS.map((limit) => (
+                  <SelectItem key={limit} value={String(limit)}>
+                    {t.settings.agentTurnLimitOption.replace("{count}", String(limit))}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 

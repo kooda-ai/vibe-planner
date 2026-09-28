@@ -1,4 +1,9 @@
-import type { MCPServerConfig } from "../types";
+import {
+  DEFAULT_AGENT_TURN_LIMIT,
+  isAgentTurnLimit,
+  type AgentTurnLimit,
+  type MCPServerConfig,
+} from "../types";
 import { callServerTool } from "../mcp/client";
 import { waitForApproval } from "../mcp/approvals";
 import {
@@ -15,8 +20,8 @@ import {
   type ProviderEvent,
 } from "./types";
 
-/** Maximum provider round-trips in one turn, keeping tool loops bounded. */
-export const MAX_AGENT_TURNS = 20;
+/** Bounded fallback for missing or invalid settings. */
+export const MAX_AGENT_TURNS = DEFAULT_AGENT_TURN_LIMIT;
 
 /**
  * Events the agent produces. `delta` carries user-visible prose (already
@@ -61,6 +66,8 @@ export interface AgentTurnOptions {
   servers: MCPServerConfig[];
   /** Namespaced tool names allowed to run without asking. */
   autoApproved: Set<string>;
+  /** Validated maximum provider round-trips for this turn. */
+  turnLimit?: AgentTurnLimit;
   /** Called with the full raw answer once the turn finishes. */
   signal?: AbortSignal;
 }
@@ -78,6 +85,9 @@ export async function* runAgentTurn(
   options: AgentTurnOptions,
 ): AsyncGenerator<AgentEvent, void, unknown> {
   const { provider, streamOptions, tools, autoApproved, signal } = options;
+  const turnLimit = isAgentTurnLimit(options.turnLimit)
+    ? options.turnLimit
+    : MAX_AGENT_TURNS;
   const serversById = new Map(options.servers.map((server) => [server.id, server]));
   const messages: ChatMessage[] = [...streamOptions.messages];
   const toolSpecs = tools.length ? toToolSpecs(tools, autoApproved) : [];
@@ -89,7 +99,7 @@ export async function* runAgentTurn(
   let toolsEnabled = toolSpecs.length > 0;
   let callCounter = 0;
 
-  for (let turn = 0; turn < MAX_AGENT_TURNS; turn += 1) {
+  for (let turn = 0; turn < turnLimit; turn += 1) {
     const toolCalls: { id: string; name: string; args: string }[] = [];
     let assistantText = "";
     let providerItems: unknown[] | undefined;

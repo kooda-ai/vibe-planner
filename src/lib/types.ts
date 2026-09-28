@@ -132,10 +132,19 @@ export interface ProviderSummary {
   accountEmail?: string;
 }
 
+export const DEFAULT_AGENT_TURN_LIMIT = 50;
+export const AGENT_TURN_LIMIT_OPTIONS = [20, 50, 100, 200] as const;
+export type AgentTurnLimit = (typeof AGENT_TURN_LIMIT_OPTIONS)[number];
+
+export function isAgentTurnLimit(value: unknown): value is AgentTurnLimit {
+  return AGENT_TURN_LIMIT_OPTIONS.some((option) => option === value);
+}
+
 export interface AppSettings {
   providers: ProviderSummary[];
   defaultProviderId: string | null;
   defaultModel: string | null;
+  agentTurnLimit: AgentTurnLimit;
   mcpServers: MCPServerConfig[];
   skills: SkillConfig[];
 }
