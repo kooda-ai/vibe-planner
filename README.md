@@ -317,3 +317,5 @@ Node.js 24 LTS) + electron-builder · Prisma (reference schema) · `@dnd-kit` ·
 
 
 ![Views](https://visitor-badge.laobi.icu/badge?page_id=kooda-ai.vibe-planner&left_text=Views&format=true&logo=github)
+![Total Downloads](https://img.shields.io/github/downloads/kooda-ai/vibe-planner/total?style=flat-square&color=2ea44f&label=Total+Downloads)
+![Latest Version Downloads](https://img.shields.io/github/downloads/kooda-ai/vibe-planner/latest/total?label=Downloads+(Latest+Version))
