@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { MessageBubble } from "@/components/chat/message-bubble";
+import { QuestionGroup, type QuestionGroupData } from "@/components/chat/question-group";
 import { SkillPicker } from "@/components/chat/skill-picker";
 import {
   ToolActivity,
@@ -59,6 +60,9 @@ export function ChatPanel({
   const [needsSettings, setNeedsSettings] = useState(false);
   const [local, setLocal] = useState<Message[]>([]);
   const [toolActivity, setToolActivity] = useState<ToolActivityItem[]>([]);
+  const [planningStatus, setPlanningStatus] = useState("");
+  const [phaseDraft, setPhaseDraft] = useState<string[]>([]);
+  const [questionGroup, setQuestionGroup] = useState<QuestionGroupData | null>(null);
   const [skills, setSkills] = useState<SkillConfig[]>([]);
   const [projectSkillIds, setProjectSkillIds] = useState<string[] | null>(null);
   const [suggestions, setSuggestions] = useState<{
@@ -207,6 +211,11 @@ export function ChatPanel({
           onDelta: (chunk) => {
             acc += chunk;
             setStreamingText(acc);
+          },
+          onStage: ({ status }) => setPlanningStatus(status),
+          onPhaseDraft: setPhaseDraft,
+          onQuestionGroup: (group) => {
+            if (group && typeof group === "object" && "questions" in group && Array.isArray((group as QuestionGroupData).questions)) setQuestionGroup(group as QuestionGroupData);
           },
           onToolApprovalRequired: (event) => upsertTool(event, "awaiting"),
           onToolCall: (event) => upsertTool(event, "running"),
@@ -360,6 +369,10 @@ export function ChatPanel({
               }
             />
           ))}
+
+          {phaseDraft.length ? <div className="rounded-lg border border-dashed p-3 text-sm" aria-label={locale === "tr" ? "Faz başlığı taslağı" : "Draft phase titles"}><p className="mb-2 font-medium">{locale === "tr" ? "Faz başlıkları taslağı" : "Draft phase titles"}</p><ol className="list-inside list-decimal text-muted-foreground">{phaseDraft.map((title, index) => <li key={`${index}-${title}`}>{title}</li>)}</ol></div> : null}
+          {planningStatus ? <p className="text-xs text-muted-foreground" role="status">{planningStatus}</p> : null}
+          {questionGroup ? <QuestionGroup group={questionGroup} onSubmit={(answer) => { setQuestionGroup(null); void send(answer); }} /> : null}
 
           <ToolActivity
             items={toolActivity}

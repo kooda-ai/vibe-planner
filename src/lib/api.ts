@@ -315,6 +315,9 @@ export interface ChatToolEvent {
 
 export interface ChatStreamHandlers {
   onDelta?: (text: string) => void;
+  onStage?: (event: { stage: string; status: string }) => void;
+  onPhaseDraft?: (titles: string[]) => void;
+  onQuestionGroup?: (group: unknown) => void;
   onDone?: (event: {
     body: string;
     phasesUpdated: number;
@@ -390,6 +393,10 @@ export async function streamChat(
 
 interface ChatStreamEvent {
   type: string;
+  stage?: string;
+  status?: string;
+  phaseDraft?: string[];
+  questionGroup?: unknown;
   text?: string;
   body?: string;
   phasesUpdated?: number;
@@ -409,6 +416,15 @@ interface ChatStreamEvent {
 
 function dispatch(event: ChatStreamEvent, handlers: ChatStreamHandlers) {
   switch (event.type) {
+    case "stage":
+      handlers.onStage?.({ stage: event.stage ?? "", status: event.status ?? "" });
+      break;
+    case "phase_draft":
+      handlers.onPhaseDraft?.(event.phaseDraft ?? []);
+      break;
+    case "question_group":
+      handlers.onQuestionGroup?.(event.questionGroup);
+      break;
     case "delta":
       if (event.text) handlers.onDelta?.(event.text);
       break;

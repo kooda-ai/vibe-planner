@@ -4,7 +4,9 @@ import { getProvider } from "@/lib/ai";
 import { runAgentTurn } from "@/lib/ai/agent";
 import { ensureFreshCodexAuth } from "@/lib/ai/codex-token";
 import { buildChatMessages } from "@/lib/ai/prompt";
+import { planningEnvelopeSchema } from "@/lib/ai/planning-types";
 import { isValidApiCredential, ProviderError, type ChatMessage } from "@/lib/ai/types";
+import { splitAnswer } from "@/lib/plan-block";
 import {
   addMessage,
   applyPlan,
@@ -39,7 +41,14 @@ interface StreamEvent {
     | "tool_result"
     | "tool_unavailable"
     | "tool_approval_required"
-    | "tool_approval_resolved";
+    | "tool_approval_resolved"
+    | "stage"
+    | "phase_draft"
+    | "question_group";
+  stage?: string;
+  status?: string;
+  phaseDraft?: string[];
+  questionGroup?: unknown;
   text?: string;
   body?: string;
   phasesUpdated?: number;
@@ -252,12 +261,27 @@ export async function POST(request: Request, { params }: Params) {
         return;
       }
 
-      // The agent's `final` event carries the complete answer, hidden plan
-      // block included, so the plan can be applied exactly as before.
+      // Staged metadata is separate from the persisted phase plan. Draft titles
+      // and question turns must never be interpreted as a partial phase update.
+      const { json } = splitAnswer(raw);
+      let envelope = null;
+      if (json) {
+        try {
+          const parsed = planningEnvelopeSchema.safeParse(JSON.parse(json));
+          if (parsed.success) envelope = parsed.data;
+        } catch {
+          envelope = null;
+        }
+      }
       const { plan, invalid, body: visibleBody } = extractPlan(raw);
+      if (envelope) {
+        send({ type: "stage", stage: envelope.stage, status: envelope.status });
+        if (envelope.phaseDraft.length) send({ type: "phase_draft", phaseDraft: envelope.phaseDraft });
+        if (envelope.questionGroup) send({ type: "question_group", questionGroup: envelope.questionGroup });
+      }
 
       let phasesUpdated = 0;
-      if (plan) {
+      if (plan && (!envelope || envelope.applyPlan)) {
         const result = await applyPlan(id, plan);
         phasesUpdated = result.created + result.updated;
       }
